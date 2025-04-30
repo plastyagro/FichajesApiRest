@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.net.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+
+<VBox alignment="TOP_CENTER" spacing="20" style="-fx-padding: 20;" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.example.fichajesapirest.TablaFirebaseApp">
+    <!-- Estilos CSS externos -->
+    <stylesheets>
+        <URL value="@style.css" />
+    </stylesheets>
+    <!-- ================= FILTROS ================= -->
+    <HBox alignment="CENTER_LEFT" spacing="15" style="-fx-border-color: #C8E6C9; -fx-border-width: 3px; -fx-border-radius: 5px; -fx-padding: 10px;">
+        <Label contentDisplay="CENTER" text="Buscar:" />
+        <TextField fx:id="buscadorTextField" onKeyReleased="#filtrarPorFecha" prefHeight="27.0" prefWidth="146.0" promptText="Nombre o Apellidos" styleClass="buscador" />
+        <Label text="Desde:" />
+        <DatePicker fx:id="fechaDesde" prefHeight="39.0" prefWidth="150.0" />
+        <Label text="Hasta:" />
+        <DatePicker fx:id="fechaHasta" prefHeight="39.0" prefWidth="150.0" />
+        <Button fx:id="filtrarButton" onAction="#filtrarPorFecha" prefHeight="38.0" prefWidth="101.0" styleClass="button" text="Filtrar" />
+    </HBox>
+
+    <!-- ================= TABLA ================= -->
+    <StackPane>
+        <TableView fx:id="tableView" prefHeight="500.0" prefWidth="800.0" styleClass="tabla-principal" onMouseClicked="#abrirDetallesTrabajador">
+            <columns>
+                <TableColumn fx:id="nombreCol" prefWidth="200" text="Nombre" />
+                <TableColumn fx:id="apellidosCol" prefWidth="200" text="Apellidos" />
+            </columns>
+        </TableView>
+    </StackPane>
+
+    <!-- ================= BOTONES ================= -->
+    <HBox alignment="CENTER" spacing="20">
+        <Button fx:id="actualizarButton" onAction="#actualizarDatos" styleClass="button" text="Actualizar" />
+        <Button fx:id="exportarButton" onAction="#exportarDatos" styleClass="button" text="Exportar" />
+    </HBox>
+</VBox>
