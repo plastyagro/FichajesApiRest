@@ -26,6 +26,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import javafx.scene.control.DatePicker;
 
 public class DetallesTrabajadorController implements Initializable {
     @FXML
@@ -45,10 +46,6 @@ public class DetallesTrabajadorController implements Initializable {
     @FXML
     private DatePicker calendarioTrabajo;
     @FXML
-    private DatePicker fechaInicioPicker;
-    @FXML
-    private DatePicker fechaFinPicker;
-    @FXML
     private TextField horaEntradaMananaField;
     @FXML
     private TextField horaSalidaMananaField;
@@ -58,10 +55,6 @@ public class DetallesTrabajadorController implements Initializable {
     private TextField horaSalidaTardeField;
     @FXML
     private Button guardarHorarioButton;
-    @FXML
-    private Button filtrarButton;
-    @FXML
-    private Button limpiarFiltroButton;
     @FXML
     private Button exportarButton;
     @FXML
@@ -114,6 +107,24 @@ public class DetallesTrabajadorController implements Initializable {
     private MenuButton menuEntradas;
     @FXML
     private MenuButton menuSalidas;
+    @FXML
+    private CheckBox checkEntradas;
+    @FXML
+    private CheckBox checkSalidas;
+    @FXML
+    private CheckBox checkPuntual;
+    @FXML
+    private CheckBox checkTarde;
+    @FXML
+    private CheckBox checkAusente;
+    @FXML
+    private ChoiceBox<String> periodoFiltro;
+    @FXML
+    private DatePicker fechaPersonalizada;
+    @FXML
+    private Label indicadorRetrasos;
+    @FXML
+    private Label indicadorAusencias;
 
     private Trabajador trabajador;
     private List<RegistroFichaje> fichajesTrabajador;
@@ -122,10 +133,6 @@ public class DetallesTrabajadorController implements Initializable {
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        // Inicializar los DatePickers
-        fechaInicioPicker = new DatePicker();
-        fechaFinPicker = new DatePicker();
-
         // Cargar las imágenes
         Image verde = new Image(getClass().getResource("/verde.png").toExternalForm());
         Image rojo = new Image(getClass().getResource("/rojo.png").toExternalForm());
@@ -154,6 +161,23 @@ public class DetallesTrabajadorController implements Initializable {
         // Mostrar las tablas de mañana por defecto
         mostrarEntradasManana();
         mostrarSalidasManana();
+
+        // Configurar el ChoiceBox de períodos
+        periodoFiltro.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null) {
+                fechaPersonalizada.setVisible("Personalizado".equals(newVal));
+                if (!"Personalizado".equals(newVal)) {
+                    filtrarPorFecha();
+                }
+            }
+        });
+
+        // Configurar el DatePicker personalizado
+        fechaPersonalizada.valueProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null) {
+                filtrarPorFecha();
+            }
+        });
     }
 
     private void configurarCalendario() {
@@ -245,7 +269,7 @@ public class DetallesTrabajadorController implements Initializable {
         dniLabel.setText(trabajador.getDni());
 
         // Actualizar el horario
-        String horario = String.format("Mañana: %s - %s | Tarde: %s - %s",
+        String horario = String.format("Mañana: %s - %s\nTarde: %s - %s",
                 formatearHora(trabajador.getHoraEntradaManana()),
                 formatearHora(trabajador.getHoraSalidaManana()),
                 formatearHora(trabajador.getHoraEntradaTarde()),
@@ -388,38 +412,64 @@ public class DetallesTrabajadorController implements Initializable {
 
     @FXML
     private void filtrarPorFecha() {
-        if (fichajesOriginales == null) {
+        if (fichajesTrabajador == null) {
             return;
         }
 
-        List<RegistroFichaje> registrosFiltrados = new ArrayList<>(fichajesOriginales);
+        List<RegistroFichaje> registrosFiltrados = new ArrayList<>(fichajesTrabajador);
+        final LocalDate hoy = LocalDate.now();
 
-        // Aplicar filtro de fechas
-        LocalDate fechaInicio = fechaInicioPicker.getValue();
-        LocalDate fechaFin = fechaFinPicker.getValue();
+        // Aplicar filtro de fechas según el período seleccionado
+        String periodo = periodoFiltro.getValue();
+        if (periodo != null) {
+            final LocalDate fechaInicio;
+            final LocalDate fechaFin;
 
-        if (fechaInicio != null || fechaFin != null) {
-            registrosFiltrados = registrosFiltrados.stream()
-                    .filter(registro -> {
-                        try {
-                            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-                            LocalDateTime fechaRegistro = LocalDateTime.parse(registro.getFechaHora(), formatter);
-                            LocalDate fecha = fechaRegistro.toLocalDate();
+            switch (periodo) {
+                case "Hoy":
+                    fechaInicio = hoy;
+                    fechaFin = hoy;
+                    break;
+                case "Esta semana":
+                    fechaInicio = hoy.minusDays(hoy.getDayOfWeek().getValue() - 1);
+                    fechaFin = hoy;
+                    break;
+                case "Este mes":
+                    fechaInicio = hoy.withDayOfMonth(1);
+                    fechaFin = hoy;
+                    break;
+                case "Últimos 7 días":
+                    fechaInicio = hoy.minusDays(7);
+                    fechaFin = hoy;
+                    break;
+                case "Últimos 30 días":
+                    fechaInicio = hoy.minusDays(30);
+                    fechaFin = hoy;
+                    break;
+                case "Personalizado":
+                    fechaInicio = fechaPersonalizada.getValue();
+                    fechaFin = fechaPersonalizada.getValue();
+                    break;
+                default:
+                    fechaInicio = null;
+                    fechaFin = hoy;
+            }
 
-                            boolean cumpleFiltro = true;
-                            if (fechaInicio != null) {
-                                cumpleFiltro = cumpleFiltro && !fecha.isBefore(fechaInicio);
+            if (fechaInicio != null) {
+                registrosFiltrados = registrosFiltrados.stream()
+                        .filter(registro -> {
+                            try {
+                                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                                LocalDateTime fechaRegistro = LocalDateTime.parse(registro.getFechaHora(), formatter);
+                                LocalDate fecha = fechaRegistro.toLocalDate();
+                                return !fecha.isBefore(fechaInicio) && !fecha.isAfter(fechaFin);
+                            } catch (Exception e) {
+                                System.err.println("Error al filtrar por fecha: " + e.getMessage());
+                                return false;
                             }
-                            if (fechaFin != null) {
-                                cumpleFiltro = cumpleFiltro && !fecha.isAfter(fechaFin);
-                            }
-                            return cumpleFiltro;
-                        } catch (Exception e) {
-                            System.err.println("Error al filtrar por fecha: " + e.getMessage());
-                            return false;
-                        }
-                    })
-                    .collect(Collectors.toList());
+                        })
+                        .collect(Collectors.toList());
+            }
         }
 
         // Actualizar las tablas
@@ -428,9 +478,9 @@ public class DetallesTrabajadorController implements Initializable {
 
     @FXML
     private void limpiarFiltro() {
-        fechaInicioPicker.setValue(null);
-        fechaFinPicker.setValue(null);
-        actualizarTablasConFichajes(fichajesOriginales);
+        periodoFiltro.setValue(null);
+        fechaPersonalizada.setValue(null);
+        actualizarTablasConFichajes(fichajesTrabajador);
     }
 
     private void actualizarTablasConFichajes(List<RegistroFichaje> fichajes) {
@@ -438,6 +488,9 @@ public class DetallesTrabajadorController implements Initializable {
         List<RegistroFichaje> entradasTarde = new ArrayList<>();
         List<RegistroFichaje> salidasManana = new ArrayList<>();
         List<RegistroFichaje> salidasTarde = new ArrayList<>();
+
+        int contadorRetrasos = 0;
+        int contadorAusencias = 0;
 
         for (RegistroFichaje registro : fichajes) {
             try {
@@ -451,13 +504,8 @@ public class DetallesTrabajadorController implements Initializable {
                 LocalTime horaEntradaTarde = LocalTime.parse(formatearHora(trabajador.getHoraEntradaTarde()));
                 LocalTime horaSalidaTarde = LocalTime.parse(formatearHora(trabajador.getHoraSalidaTarde()));
 
-                System.out.println("Procesando registro: " + registro.getFechaHora());
-                System.out.println("Tipo: " + registro.getTipo());
-                System.out.println("Hora registro: " + horaRegistro);
-
                 // Determinar si es mañana o tarde
                 boolean esManana = horaRegistro.isBefore(LocalTime.of(14, 0));
-                System.out.println("Es mañana: " + esManana);
 
                 if (registro.getTipo().equals("entrada")) {
                     if (esManana) {
@@ -468,8 +516,8 @@ public class DetallesTrabajadorController implements Initializable {
                             registro.setEstado("Puntual");
                         } else {
                             registro.setEstado("Retrasada");
+                            contadorRetrasos++;
                         }
-                        System.out.println("Estado entrada mañana: " + registro.getEstado());
                         entradasManana.add(registro);
                     } else {
                         // Entrada de tarde
@@ -479,8 +527,8 @@ public class DetallesTrabajadorController implements Initializable {
                             registro.setEstado("Puntual");
                         } else {
                             registro.setEstado("Retrasada");
+                            contadorRetrasos++;
                         }
-                        System.out.println("Estado entrada tarde: " + registro.getEstado());
                         entradasTarde.add(registro);
                     }
                 } else if (registro.getTipo().equals("salida")) {
@@ -492,8 +540,8 @@ public class DetallesTrabajadorController implements Initializable {
                             registro.setEstado("Puntual");
                         } else {
                             registro.setEstado("Tardía");
+                            contadorRetrasos++;
                         }
-                        System.out.println("Estado salida mañana: " + registro.getEstado());
                         salidasManana.add(registro);
                     } else {
                         // Salida de tarde
@@ -503,8 +551,8 @@ public class DetallesTrabajadorController implements Initializable {
                             registro.setEstado("Puntual");
                         } else {
                             registro.setEstado("Tardía");
+                            contadorRetrasos++;
                         }
-                        System.out.println("Estado salida tarde: " + registro.getEstado());
                         salidasTarde.add(registro);
                     }
                 }
@@ -526,6 +574,10 @@ public class DetallesTrabajadorController implements Initializable {
         salidasMananaTableView.getItems().setAll(salidasManana);
         salidasTardeTableView.getItems().setAll(salidasTarde);
 
+        // Actualizar los indicadores
+        indicadorRetrasos.setText(contadorRetrasos + "");
+        indicadorAusencias.setText(contadorAusencias + "");
+
         // Actualizar el calendario
         actualizarCalendario();
     }
@@ -543,6 +595,9 @@ public class DetallesTrabajadorController implements Initializable {
                 mostrarAlerta("Error", "Los horarios deben estar en formato HH:mm");
                 return;
             }
+
+            // Guardar la selección actual del período
+            String periodoSeleccionado = periodoFiltro.getValue();
 
             System.out.println("Horarios antes de actualizar:");
             System.out.println("Entrada Mañana: " + trabajador.getHoraEntradaManana());
@@ -568,7 +623,7 @@ public class DetallesTrabajadorController implements Initializable {
             System.out.println("Actualización en Firebase completada");
 
             // Actualizar el horario en la información personal
-            String horario = String.format("Mañana: %s - %s | Tarde: %s - %s",
+            String horario = String.format("Mañana: %s - %s\nTarde: %s - %s",
                     formatearHora(trabajador.getHoraEntradaManana()),
                     formatearHora(trabajador.getHoraSalidaManana()),
                     formatearHora(trabajador.getHoraEntradaTarde()),
@@ -578,6 +633,12 @@ public class DetallesTrabajadorController implements Initializable {
             System.out.println("Actualizando tablas...");
             // Actualizar las tablas con los nuevos estados
             actualizarTablasConFichajes(fichajesOriginales);
+
+            // Restaurar la selección del período
+            if (periodoSeleccionado != null) {
+                periodoFiltro.setValue(periodoSeleccionado);
+                filtrarPorFecha();
+            }
 
             // Forzar la actualización de las celdas de iconos
             entradasMananaTableView.refresh();
@@ -652,6 +713,28 @@ public class DetallesTrabajadorController implements Initializable {
         estadoCol.setCellValueFactory(new PropertyValueFactory<>("estado"));
         iconosCol.setCellValueFactory(new PropertyValueFactory<>("fechaHora"));
 
+        // Formatear la columna de fecha y hora
+        fechaCol.setCellFactory(column -> new TableCell<RegistroFichaje, String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    try {
+                        DateTimeFormatter parser = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy | HH:mm");
+                        LocalDateTime fecha = LocalDateTime.parse(item, parser);
+                        setText(fecha.format(formatter));
+                        getStyleClass().add("date-time-cell");
+                    } catch (Exception e) {
+                        setText(item);
+                    }
+                }
+            }
+        });
+
         // Aplicar estilos a las columnas
         estadoCol.getStyleClass().add("estado-column");
         iconosCol.getStyleClass().add("iconos-column");
@@ -672,8 +755,10 @@ public class DetallesTrabajadorController implements Initializable {
                         if (getTableRow() != null && getTableRow().getItem() != null) {
                             RegistroFichaje registro = getTableRow().getItem();
                             String estado = registro.getEstado();
+                            String tipo = registro.getTipo();
                             System.out.println("Procesando iconos para registro: " + registro.getFechaHora());
                             System.out.println("Estado: " + estado);
+                            System.out.println("Tipo: " + tipo);
 
                             switch (estado) {
                                 case "Puntual":
@@ -683,10 +768,22 @@ public class DetallesTrabajadorController implements Initializable {
                                     iconos.getChildren().add(iconoVerde);
                                     break;
                                 case "Anticipada":
-                                    ImageView iconoRojo = new ImageView(rojo);
-                                    iconoRojo.setFitHeight(16);
-                                    iconoRojo.setFitWidth(16);
-                                    iconos.getChildren().add(iconoRojo);
+                                    if (tipo.equals("entrada")) {
+                                        // Para entradas anticipadas, mostrar dos puntos verdes
+                                        ImageView iconoVerde1 = new ImageView(verde);
+                                        iconoVerde1.setFitHeight(16);
+                                        iconoVerde1.setFitWidth(16);
+                                        ImageView iconoVerde2 = new ImageView(verde);
+                                        iconoVerde2.setFitHeight(16);
+                                        iconoVerde2.setFitWidth(16);
+                                        iconos.getChildren().addAll(iconoVerde1, iconoVerde2);
+                                    } else {
+                                        // Para salidas anticipadas, mostrar un punto rojo
+                                        ImageView iconoRojo = new ImageView(rojo);
+                                        iconoRojo.setFitHeight(16);
+                                        iconoRojo.setFitWidth(16);
+                                        iconos.getChildren().add(iconoRojo);
+                                    }
                                     break;
                                 case "Retrasada":
                                 case "Tardía":

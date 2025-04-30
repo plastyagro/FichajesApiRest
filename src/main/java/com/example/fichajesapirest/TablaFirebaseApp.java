@@ -23,6 +23,7 @@ import javafx.util.Duration;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -48,8 +49,24 @@ public class TablaFirebaseApp {
         nombreCol.setCellValueFactory(new PropertyValueFactory<>("nombre"));
         apellidosCol.setCellValueFactory(new PropertyValueFactory<>("apellidos"));
 
+        // Configurar la tabla para que no permita seleccionar filas vacías
+        tableView.setRowFactory(tv -> {
+            TableRow<Trabajador> row = new TableRow<>();
+            row.setOnMouseClicked(event -> {
+                if (!row.isEmpty()) {
+                    abrirDetallesTrabajador(event);
+                }
+            });
+            return row;
+        });
+
         // Cargar los trabajadores
         cargarTrabajadores();
+        
+        // Configurar actualización automática cada 5 minutos
+        Timeline timeline = new Timeline(new KeyFrame(Duration.minutes(5), e -> actualizarDatos()));
+        timeline.setCycleCount(Timeline.INDEFINITE);
+        timeline.play();
     }
 
     private void cargarTrabajadores() {
@@ -77,13 +94,12 @@ public class TablaFirebaseApp {
 
     @FXML
     private void abrirDetallesTrabajador(MouseEvent event) {
-        if (event.getClickCount() == 2) { // Doble clic
+        if (event.getClickCount() == 1) { // Solo procesar clics simples
             Trabajador trabajadorSeleccionado = tableView.getSelectionModel().getSelectedItem();
             if (trabajadorSeleccionado != null) {
                 try {
                     // Obtener los fichajes del trabajador
                     List<RegistroFichaje> fichajes = firebase.obtenerFichajesTrabajador(trabajadorSeleccionado.getDni());
-                    System.out.println("Fichajes obtenidos para " + trabajadorSeleccionado.getNombre() + ": " + fichajes.size());
                     
                     FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/example/fichajesapirest/detalles_trabajador.fxml"));
                     Parent root = loader.load();
@@ -94,7 +110,7 @@ public class TablaFirebaseApp {
                     Stage stage = new Stage();
                     stage.setTitle("Detalles del Trabajador");
                     stage.setScene(new Scene(root));
-                    stage.setMaximized(true); // Establecer la ventana como maximizada
+                    stage.setMaximized(true);
                     stage.show();
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -151,32 +167,22 @@ public class TablaFirebaseApp {
 
     private void filtrarPorNombreYFecha() {
         String textoBuscado = buscadorTextField.getText().toLowerCase();
-        LocalDateTime desde = (fechaDesde.getValue() != null) ? fechaDesde.getValue().atStartOfDay() : null;
-        LocalDateTime hasta = (fechaHasta.getValue() != null) ? fechaHasta.getValue().atTime(23, 59) : null;
+        
+        if (textoBuscado.isEmpty()) {
+            // Si no hay texto de búsqueda, mostrar todos los trabajadores
+            tableView.setItems(trabajadores);
+            return;
+        }
 
         ObservableList<Trabajador> filtrado = FXCollections.observableArrayList();
 
-        try {
-            for (Trabajador trabajador : trabajadores) {
-                for (RegistroFichaje registro : trabajador.getFichajes()) {
-                    String nombreCompleto = (trabajador.getNombre() + " " + trabajador.getApellidos()).toLowerCase();
-                    LocalDateTime fecha = LocalDateTime.parse(registro.getFechaHora().replace(" ", "T"));
-
-                    boolean dentroDelRango = (desde == null || !fecha.isBefore(desde)) &&
-                            (hasta == null || !fecha.isAfter(hasta));
-                    boolean coincideNombre = textoBuscado.isEmpty() || nombreCompleto.contains(textoBuscado);
-
-                    if (dentroDelRango && coincideNombre) {
-                        filtrado.add(trabajador);
-                        break;
-                    }
-                }
+        for (Trabajador trabajador : trabajadores) {
+            String nombreCompleto = (trabajador.getNombre() + " " + trabajador.getApellidos()).toLowerCase();
+            if (nombreCompleto.contains(textoBuscado)) {
+                filtrado.add(trabajador);
             }
-
-            tableView.setItems(filtrado);
-
-        } catch (Exception e) {
-            e.printStackTrace();
         }
+
+        tableView.setItems(filtrado);
     }
 }

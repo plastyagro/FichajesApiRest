@@ -1,6 +1,6 @@
 /* === Estilo General === */
 .root {
-    -fx-font-family: 'Segoe UI', sans-serif;
+    -fx-font-family: 'Segoe UI', Arial, sans-serif;
     -fx-background-color: #f5f5f5;
     -fx-min-width: 800px;
     -fx-min-height: 600px;
@@ -34,9 +34,9 @@
 
 /* === TabPane y Tabs === */
 .tab-pane {
-    -fx-background-color: #F8F9FA;
-    -fx-background-radius: 15;
-    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 15, 0, 0, 3);
+    -fx-background-color: white;
+    -fx-background-radius: 8;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0, 0, 2);
     -fx-tab-min-height: 45px;
     -fx-tab-max-height: 45px;
     -fx-padding: 5;
@@ -51,44 +51,38 @@
 }
 
 .tab-pane .tab-header-area {
+    -fx-background-color: white;
     -fx-padding: 0 0 0 0;
-    -fx-background-color: #F8F9FA;
-    -fx-background-radius: 15 15 0 0;
 }
 
 .tab-pane .tab-header-background {
-    -fx-background-color: #F8F9FA;
-    -fx-background-radius: 15 15 0 0;
-    -fx-border-color: #E8F5E9;
-    -fx-border-width: 0 0 2 0;
-    -fx-border-radius: 15 15 0 0;
+    -fx-background-color: white;
 }
 
 .tab {
-    -fx-background-color: #F8F9FA;
-    -fx-text-fill: #1B5E20;
+    -fx-background-color: #f5f5f5;
+    -fx-text-fill: #333333;
     -fx-font-weight: bold;
-    -fx-font-size: 14px;
-    -fx-padding: 15 25;
-    -fx-background-radius: 10 10 0 0;
+    -fx-font-size: 12px;
+    -fx-padding: 5 10;
+    -fx-background-radius: 8;
     -fx-background-insets: 0 2 0 2;
-    -fx-border-color: transparent;
-    -fx-border-width: 0 0 3 0;
-    -fx-border-radius: 10 10 0 0;
+    -fx-border-color: #e0e0e0;
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
     -fx-focus-color: transparent;
     -fx-faint-focus-color: transparent;
 }
 
 .tab:selected {
     -fx-background-color: white;
-    -fx-border-color: #2E7D32;
-    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 2);
-    -fx-background-radius: 10 10 0 0;
+    -fx-border-color: #1976d2;
+    -fx-border-width: 2;
 }
 
 .tab:hover {
-    -fx-background-color: #E8F5E9;
-    -fx-background-radius: 10 10 0 0;
+    -fx-background-color: #f5f5f5;
+    -fx-background-radius: 8;
 }
 
 .sub-tab-pane {
@@ -108,38 +102,34 @@
 .table-view {
     -fx-background-color: white;
     -fx-background-radius: 10;
+    -fx-border-radius: 10;
+    -fx-padding: 0;
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0, 0, 2);
     -fx-border-color: #C8E6C9;
     -fx-border-width: 1px;
-    -fx-border-radius: 5px;
     -fx-min-height: 200px;
     -fx-pref-height: 250px;
     -fx-max-height: 300px;
     -fx-min-width: 500px;
     -fx-pref-width: 550px;
     -fx-max-width: 600px;
-    -fx-padding: 0;
-    -fx-background-insets: 0;
     -fx-fit-to-width: true;
     -fx-fit-to-height: true;
 }
 
-.table-view .column-header-background {
-    -fx-background-color: #F8F9FA;
-    -fx-background-radius: 5 5 0 0;
-    -fx-border-color: #C8E6C9;
-    -fx-border-width: 0 0 2 0;
-    -fx-pref-height: 30px;
-    -fx-padding: 0;
-    -fx-background-insets: 0;
+.table-view .column-header {
+    -fx-background-color: #f5f5f5;
+    -fx-border-color: #e0e0e0;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 15 0;
+    -fx-font-weight: bold;
+    -fx-text-fill: #333333;
+    -fx-font-size: 14px;
 }
 
-.table-view .column-header, .table-view .filler {
-    -fx-background-color: transparent;
-    -fx-border-color: transparent;
-    -fx-pref-height: 30px;
-    -fx-padding: 0;
-    -fx-background-insets: 0;
+.table-view .column-header .label {
+    -fx-alignment: CENTER_LEFT;
+    -fx-padding: 0 0 0 15;
 }
 
 .table-view .column-header .icon-column {
@@ -163,27 +153,117 @@
     -fx-alignment: CENTER;
 }
 
+.table-view .column-header .date-time-column {
+    -fx-pref-width: 185.0;
+    -fx-min-width: 185.0;
+    -fx-max-width: 185.0;
+    -fx-alignment: CENTER;
+    -fx-background-color: #f5f5f5;
+    -fx-border-color: #e0e0e0;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 8 5;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #333333;
+}
+
+.table-view .table-cell {
+    -fx-padding: 15 0 15 15;
+    -fx-border-color: transparent;
+    -fx-text-fill: #333333;
+    -fx-font-size: 14px;
+}
+
 .table-view .table-row-cell {
     -fx-background-color: white;
     -fx-border-color: transparent;
-    -fx-min-height: 35px;
-    -fx-pref-height: 35px;
-    -fx-max-height: 35px;
+    -fx-cursor: hand;
 }
 
 .table-view .table-row-cell:odd {
-    -fx-background-color: #F8F9FA;
+    -fx-background-color: #f9f9f9;
+}
+
+.table-view .table-row-cell:hover {
+    -fx-background-color: #E8F5E9;
+    -fx-text-fill: #2E7D32;
+    -fx-effect: dropshadow(gaussian, rgba(46, 125, 50, 0.1), 5, 0, 0, 2);
 }
 
 .table-view .table-row-cell:selected {
     -fx-background-color: #E8F5E9;
+    -fx-text-fill: #2E7D32;
 }
 
-.table-view .table-cell {
-    -fx-text-fill: #212121;
-    -fx-font-size: 14px;
-    -fx-padding: 8px;
+.table-view .table-row-cell:selected:hover {
+    -fx-background-color: #C8E6C9;
+    -fx-text-fill: #1B5E20;
+}
+
+.table-view .scroll-bar:horizontal,
+.table-view .scroll-bar:vertical {
+    -fx-background-color: transparent;
+}
+
+.table-view .scroll-bar:horizontal .track,
+.table-view .scroll-bar:vertical .track {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+
+.table-view .scroll-bar:horizontal .increment-button,
+.table-view .scroll-bar:horizontal .decrement-button {
+    -fx-background-color: transparent;
+    -fx-background-radius: 0;
+    -fx-padding: 0 0 10 0;
+}
+
+.table-view .scroll-bar:vertical .increment-button,
+.table-view .scroll-bar:vertical .decrement-button {
+    -fx-background-color: transparent;
+    -fx-background-radius: 0;
+    -fx-padding: 0 10 0 0;
+}
+
+.table-view .scroll-bar .increment-arrow,
+.table-view .scroll-bar .decrement-arrow {
+    -fx-shape: " ";
+    -fx-padding: 0;
+}
+
+.table-view .scroll-bar:horizontal .thumb,
+.table-view .scroll-bar:vertical .thumb {
+    -fx-background-color: #e0e0e0;
+    -fx-background-radius: 5;
+}
+
+.table-view .scroll-bar:horizontal .thumb:hover,
+.table-view .scroll-bar:vertical .thumb:hover {
+    -fx-background-color: #d0d0d0;
+}
+
+.table-view .table-cell.date-time-cell {
+    -fx-padding: 8 15;
     -fx-alignment: CENTER;
+    -fx-font-size: 12px;
+    -fx-text-fill: #333333;
+    -fx-background-color: white;
+}
+
+.table-view .table-cell.date-time-cell:odd {
+    -fx-background-color: #fafafa;
+}
+
+.table-view .table-cell.date-time-cell:selected {
+    -fx-background-color: #e3f2fd;
+    -fx-text-fill: #1976d2;
+}
+
+/* Estilo para el separador de fecha y hora */
+.table-view .table-cell.date-time-cell .date-time-separator {
+    -fx-text-fill: #666666;
+    -fx-font-weight: bold;
+    -fx-padding: 0 5 0 5;
 }
 
 /* === Campos de Entrada === */
@@ -462,14 +542,79 @@
     -fx-pref-width: 250px;
 }
 
-/* Ajuste para el scrollbar */
-.table-view .scroll-bar:vertical {
-    -fx-pref-width: 10;
-    -fx-padding: 0;
+/* Estilo para el contenido de las pestañas */
+.tab-content {
+    -fx-background-color: white;
+    -fx-background-radius: 8;
+    -fx-padding: 10;
 }
 
-.table-view .scroll-bar:horizontal {
-    -fx-pref-height: 0;
-    -fx-padding: 0;
-    -fx-opacity: 0;
+.tab-pane .tab .tab-label {
+    -fx-text-fill: #333333;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+}
+
+.tab-pane .tab:selected .tab-label {
+    -fx-text-fill: #1976d2;
+}
+
+/* Estilos generales */
+.root {
+    -fx-font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+/* Estilos de botones */
+.boton-primario {
+    -fx-background-color: #ffffff;
+    -fx-text-fill: #2E7D32;
+    -fx-font-weight: bold;
+    -fx-padding: 8 16;
+    -fx-background-radius: 5;
+    -fx-border-color: #ffffff;
+    -fx-border-radius: 5;
+    -fx-border-width: 1;
+}
+
+.boton-primario:hover {
+    -fx-background-color: #f0f0f0;
+}
+
+.boton-secundario {
+    -fx-background-color: transparent;
+    -fx-text-fill: #ffffff;
+    -fx-font-weight: bold;
+    -fx-padding: 8 16;
+    -fx-background-radius: 5;
+    -fx-border-color: #ffffff;
+    -fx-border-radius: 5;
+    -fx-border-width: 1;
+}
+
+.boton-secundario:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* === Estilos del campo de búsqueda === */
+.buscador {
+    -fx-background-color: #f5f5f5;
+    -fx-background-radius: 5;
+    -fx-border-color: #e0e0e0;
+    -fx-border-radius: 5;
+    -fx-border-width: 1;
+    -fx-padding: 10 15;
+    -fx-font-size: 14px;
+    -fx-prompt-text-fill: #999999;
+}
+
+.buscador:focused {
+    -fx-border-color: #2E7D32;
+    -fx-background-color: white;
+    -fx-effect: dropshadow(gaussian, rgba(46, 125, 50, 0.1), 5, 0, 0, 2);
+}
+
+/* Estilos de las columnas */
+.table-column {
+    -fx-alignment: CENTER_LEFT;
+    -fx-font-size: 14px;
 }

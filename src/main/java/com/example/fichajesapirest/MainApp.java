@@ -13,7 +13,7 @@ public class MainApp extends Application {
 
         Parent root = loader.load();
         Scene scene = new Scene(root);
-        stage.setTitle("Fichajes Firebase");
+        stage.setTitle("Gestión de fichajes");
         stage.setScene(scene);
         stage.setMaximized(true);
         stage.show();

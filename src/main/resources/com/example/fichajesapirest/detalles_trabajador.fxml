@@ -8,6 +8,8 @@
 
 <!-- ================= ESTRUCTURA PRINCIPAL ================= -->
 
+<?import javafx.collections.FXCollections?>
+<?import java.lang.String?>
 <VBox alignment="TOP_CENTER" spacing="0" style="-fx-background-color: #f5f5f5;" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.example.fichajesapirest.DetallesTrabajadorController">
     <!-- ================= ESTILOS ================= -->
     <stylesheets>
@@ -26,10 +28,10 @@
     </HBox>
 
     <!-- ================= CONTENIDO PRINCIPAL ================= -->
-    <VBox VBox.vgrow="ALWAYS" style="-fx-padding: 10;">
-        <HBox HBox.hgrow="ALWAYS" spacing="20">
+    <VBox style="-fx-padding: 10;" VBox.vgrow="ALWAYS">
+        <HBox spacing="20" HBox.hgrow="ALWAYS">
             <!-- ================= PANEL IZQUIERDO: INFORMACIÓN ================= -->
-            <VBox maxWidth="350" minWidth="350" prefWidth="350" spacing="20" style="-fx-padding: 0 0 0 20;">
+            <VBox maxWidth="350" minWidth="350" prefWidth="350" spacing="10" style="-fx-padding: 0 0 0 20;">
                 <!-- Menú desplegable de Información Personal -->
                 <TitledPane animated="true" collapsible="true" expanded="false" style="-fx-background-radius: 10; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0, 0, 2);" styleClass="panel-filtros" text="Información Personal">
                     <graphic>
@@ -46,7 +48,9 @@
                             <Label style="-fx-font-size: 12px;" styleClass="etiqueta-filtro" text="DNI:" GridPane.columnIndex="0" GridPane.rowIndex="2" />
                             <Label fx:id="dniLabel" style="-fx-font-size: 12px; -fx-font-weight: bold;" styleClass="campo-busqueda" GridPane.columnIndex="1" GridPane.rowIndex="2" />
                             <Label style="-fx-font-size: 12px;" styleClass="etiqueta-filtro" text="Horario:" GridPane.columnIndex="0" GridPane.rowIndex="3" />
-                            <Label fx:id="horarioLabel" style="-fx-font-size: 12px; -fx-font-weight: bold;" styleClass="campo-busqueda" GridPane.columnIndex="1" GridPane.rowIndex="3" />
+                            <VBox GridPane.columnIndex="1" GridPane.rowIndex="3">
+                                <Label fx:id="horarioLabel" style="-fx-font-size: 12px; -fx-font-weight: bold; -fx-wrap-text: true;" styleClass="campo-busqueda" />
+                            </VBox>
                             <columnConstraints>
                                 <ColumnConstraints />
                                 <ColumnConstraints />
@@ -143,59 +147,28 @@
             </VBox>
 
             <!-- ================= PANEL DERECHO: TABLAS ================= -->
-            <VBox HBox.hgrow="ALWAYS" style="-fx-padding: 15; -fx-background-radius: 10; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0, 0, 2);" styleClass="panel-tabla">
-                <!-- Filtros avanzados -->
-                <VBox prefHeight="100.0" spacing="5" style="-fx-padding: 10; -fx-background-color: white; -fx-background-radius: 10; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0, 0, 2);">
+            <VBox style="-fx-padding: 15; -fx-background-radius: 10; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0, 0, 2);" styleClass="panel-tabla" HBox.hgrow="ALWAYS">
+                <!-- Filtros -->
+                <VBox prefHeight="80.0" prefWidth="626.0" spacing="5" style="-fx-padding: 10;">
                     <HBox alignment="CENTER_LEFT" spacing="10">
-                        <Label style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #333333;" text="Filtros Avanzados" />
-                        <MenuButton fx:id="menuFiltrosAdicionales" prefHeight="23.0" prefWidth="123.0" styleClass="menu-button" text="Más Filtros">
-                            <items>
-                                <CustomMenuItem>
-                                    <content>
-                                        <VBox spacing="5" style="-fx-padding: 10;">
-                                            <Label style="-fx-font-size: 12px; -fx-text-fill: #666666;" text="Tipo de Registro" />
-                                            <HBox alignment="CENTER_LEFT" spacing="15">
-                                                <CheckBox fx:id="checkEntradas" selected="true" styleClass="checkbox" text="Entradas" />
-                                                <CheckBox fx:id="checkSalidas" selected="true" styleClass="checkbox" text="Salidas" />
-                                            </HBox>
-                                            <Separator style="-fx-padding: 5 0;" />
-                                            <Label style="-fx-font-size: 12px; -fx-text-fill: #666666;" text="Estado" />
-                                            <HBox alignment="CENTER_LEFT" spacing="15">
-                                                <CheckBox fx:id="checkPuntual" selected="true" styleClass="checkbox" text="Puntual" />
-                                                <CheckBox fx:id="checkTarde" selected="true" styleClass="checkbox" text="Tarde" />
-                                                <CheckBox fx:id="checkAusente" selected="true" styleClass="checkbox" text="Ausente" />
-                                            </HBox>
-                                        </VBox>
-                                    </content>
-                                </CustomMenuItem>
-                            </items>
-                        </MenuButton>
-                       <HBox alignment="CENTER_LEFT" prefHeight="72.0" prefWidth="407.0" spacing="20" style="-fx-padding: 5;">
-                           <VBox spacing="5" style="-fx-min-width: 200;">
-                               <Label style="-fx-font-size: 12px; -fx-text-fill: #666666;" text="Rango de Fechas" />
-                               <HBox alignment="CENTER_LEFT" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="42.0" prefWidth="391.0" spacing="10">
-                                   <DatePicker fx:id="fechaInicioPicker" maxHeight="-Infinity" maxWidth="-Infinity" minWidth="75.0" prefHeight="42.0" prefWidth="75.0" styleClass="date-picker" />
-                                   <Label style="-fx-text-fill: #666666;" text="a" />
-                                   <DatePicker fx:id="fechaFinPicker" minWidth="156.0" prefHeight="42.0" prefWidth="107.0" styleClass="date-picker" />
-                               </HBox>
-                           </VBox>
-                       </HBox>
-                    </HBox>
-                    <HBox alignment="CENTER_RIGHT" spacing="10" style="-fx-padding: 5 0 0 0;">
-                        <Button onAction="#limpiarFiltro" prefHeight="32.0" prefWidth="120.0" styleClass="boton-limpiar-filtros" text="Limpiar Filtros">
-                            <graphic>
-                                <ImageView fitHeight="16" fitWidth="16">
-                                    <Image url="@/clear-icon.png" />
-                                </ImageView>
-                            </graphic>
-                        </Button>
-                        <Button onAction="#filtrarPorFecha" prefHeight="30.0" prefWidth="120.0" styleClass="button" text="Aplicar Filtros">
-                            <graphic>
-                                <ImageView fitHeight="16" fitWidth="16">
-                                    <Image url="@/filter-icon.png" />
-                                </ImageView>
-                            </graphic>
-                        </Button>
+                        <VBox prefHeight="62.0" prefWidth="530.0" spacing="5" style="-fx-min-width: 200;">
+                            <Label style="-fx-font-size: 12px; -fx-text-fill: #666666;" text="Período" />
+                            <HBox alignment="CENTER_LEFT" spacing="10">
+                                <ChoiceBox fx:id="periodoFiltro" prefWidth="200.0" styleClass="choice-box">
+                                    <items>
+                                        <FXCollections fx:factory="observableArrayList">
+                                            <String fx:value="Hoy" />
+                                            <String fx:value="Esta semana" />
+                                            <String fx:value="Este mes" />
+                                            <String fx:value="Últimos 7 días" />
+                                            <String fx:value="Últimos 30 días" />
+                                            <String fx:value="Personalizado" />
+                                        </FXCollections>
+                                    </items>
+                                </ChoiceBox>
+                                <DatePicker fx:id="fechaPersonalizada" visible="false" prefWidth="200.0" styleClass="date-picker" />
+                            </HBox>
+                        </VBox>
                     </HBox>
                 </VBox>
 
@@ -203,7 +176,7 @@
                 <Region prefHeight="10" />
 
                 <!-- TabPane con las tablas -->
-                <TabPane fx:id="tabPane" VBox.vgrow="ALWAYS" styleClass="tab-pane">
+                <TabPane fx:id="tabPane" styleClass="tab-pane" VBox.vgrow="ALWAYS">
                     <tabs>
                         <!-- Pestaña de Entradas -->
                         <Tab closable="false" styleClass="tab">
@@ -222,24 +195,34 @@
                                 </HBox>
                             </graphic>
                             <content>
-                                <StackPane style="-fx-padding: 5;" styleClass="tab-content" VBox.vgrow="ALWAYS">
-                                    <TableView fx:id="entradasMananaTableView" maxHeight="400" minHeight="300" prefHeight="350" prefWidth="800" styleClass="table-view" visible="false" VBox.vgrow="ALWAYS">
-                                        <columns>
-                                            <TableColumn fx:id="fechaEntradaMananaCol" prefWidth="200.0" styleClass="table-column" text="Fecha y Hora" />
-                                            <TableColumn fx:id="tipoEntradaMananaCol" prefWidth="150.0" styleClass="table-column" text="Tipo" />
-                                            <TableColumn fx:id="estadoEntradaMananaCol" prefWidth="150.0" styleClass="table-column" text="Estado" />
-                                            <TableColumn fx:id="iconosEntradaMananaColumn" prefWidth="100.0" styleClass="table-column" text="Iconos" />
-                                        </columns>
-                                    </TableView>
-                                    <TableView fx:id="entradasTardeTableView" maxHeight="400" minHeight="300" prefHeight="350" prefWidth="800" styleClass="table-view" visible="false" VBox.vgrow="ALWAYS">
-                                        <columns>
-                                            <TableColumn fx:id="fechaEntradaTardeCol" prefWidth="200.0" styleClass="table-column" text="Fecha y Hora" />
-                                            <TableColumn fx:id="tipoEntradaTardeCol" prefWidth="150.0" styleClass="table-column" text="Tipo" />
-                                            <TableColumn fx:id="estadoEntradaTardeCol" prefWidth="150.0" styleClass="table-column" text="Estado" />
-                                            <TableColumn fx:id="iconosEntradaTardeColumn" prefWidth="100.0" styleClass="table-column" text="Iconos" />
-                                        </columns>
-                                    </TableView>
-                                </StackPane>
+                                <VBox VBox.vgrow="ALWAYS">
+                                    <StackPane style="-fx-padding: 5;" styleClass="tab-content" VBox.vgrow="ALWAYS">
+                                        <TableView fx:id="entradasMananaTableView" styleClass="table-view" visible="false" VBox.vgrow="ALWAYS">
+                                            <columns>
+                                                <TableColumn fx:id="fechaEntradaMananaCol" prefWidth="185.0" styleClass="date-time-column" text="Fecha y Hora">
+                                                    <styleClass>
+                                                        <String fx:value="date-time-column" />
+                                                    </styleClass>
+                                                </TableColumn>
+                                                <TableColumn fx:id="tipoEntradaMananaCol" prefWidth="125.0" styleClass="table-column" text="Tipo" />
+                                                <TableColumn fx:id="estadoEntradaMananaCol" prefWidth="125.0" styleClass="table-column" text="Estado" />
+                                                <TableColumn fx:id="iconosEntradaMananaColumn" prefWidth="143.0" styleClass="table-column" text="Iconos" />
+                                            </columns>
+                                        </TableView>
+                                        <TableView fx:id="entradasTardeTableView" styleClass="table-view" visible="false" VBox.vgrow="ALWAYS">
+                                            <columns>
+                                                <TableColumn fx:id="fechaEntradaTardeCol" prefWidth="185.0" styleClass="date-time-column" text="Fecha y Hora">
+                                                    <styleClass>
+                                                        <String fx:value="date-time-column" />
+                                                    </styleClass>
+                                                </TableColumn>
+                                                <TableColumn fx:id="tipoEntradaTardeCol" prefWidth="125.0" styleClass="table-column" text="Tipo" />
+                                                <TableColumn fx:id="estadoEntradaTardeCol" prefWidth="125.0" styleClass="table-column" text="Estado" />
+                                                <TableColumn fx:id="iconosEntradaTardeColumn" prefWidth="143.0" styleClass="table-column" text="Iconos" />
+                                            </columns>
+                                        </TableView>
+                                    </StackPane>
+                                </VBox>
                             </content>
                         </Tab>
 
@@ -260,24 +243,34 @@
                                 </HBox>
                             </graphic>
                             <content>
-                                <StackPane style="-fx-padding: 5;" styleClass="tab-content" VBox.vgrow="ALWAYS">
-                                    <TableView fx:id="salidasMananaTableView" maxHeight="400" minHeight="300" prefHeight="350" prefWidth="800" styleClass="table-view" visible="false" VBox.vgrow="ALWAYS">
-                                        <columns>
-                                            <TableColumn fx:id="fechaSalidaMananaCol" prefWidth="200.0" styleClass="table-column" text="Fecha y Hora" />
-                                            <TableColumn fx:id="tipoSalidaMananaCol" prefWidth="150.0" styleClass="table-column" text="Tipo" />
-                                            <TableColumn fx:id="estadoSalidaMananaCol" prefWidth="150.0" styleClass="table-column" text="Estado" />
-                                            <TableColumn fx:id="iconosSalidaMananaColumn" prefWidth="100.0" styleClass="table-column" text="Iconos" />
-                                        </columns>
-                                    </TableView>
-                                    <TableView fx:id="salidasTardeTableView" maxHeight="400" minHeight="300" prefHeight="350" prefWidth="800" styleClass="table-view" visible="false" VBox.vgrow="ALWAYS">
-                                        <columns>
-                                            <TableColumn fx:id="fechaSalidaTardeCol" prefWidth="200.0" styleClass="table-column" text="Fecha y Hora" />
-                                            <TableColumn fx:id="tipoSalidaTardeCol" prefWidth="150.0" styleClass="table-column" text="Tipo" />
-                                            <TableColumn fx:id="estadoSalidaTardeCol" prefWidth="150.0" styleClass="table-column" text="Estado" />
-                                            <TableColumn fx:id="iconosSalidaTardeColumn" prefWidth="100.0" styleClass="table-column" text="Iconos" />
-                                        </columns>
-                                    </TableView>
-                                </StackPane>
+                                <VBox VBox.vgrow="ALWAYS">
+                                    <StackPane style="-fx-padding: 5;" styleClass="tab-content" VBox.vgrow="ALWAYS">
+                                        <TableView fx:id="salidasMananaTableView" styleClass="table-view" visible="false" VBox.vgrow="ALWAYS">
+                                            <columns>
+                                                <TableColumn fx:id="fechaSalidaMananaCol" prefWidth="185.0" styleClass="date-time-column" text="Fecha y Hora">
+                                                    <styleClass>
+                                                        <String fx:value="date-time-column" />
+                                                    </styleClass>
+                                                </TableColumn>
+                                                <TableColumn fx:id="tipoSalidaMananaCol" prefWidth="125.0" styleClass="table-column" text="Tipo" />
+                                                <TableColumn fx:id="estadoSalidaMananaCol" prefWidth="125.0" styleClass="table-column" text="Estado" />
+                                                <TableColumn fx:id="iconosSalidaMananaColumn" prefWidth="143.0" styleClass="table-column" text="Iconos" />
+                                            </columns>
+                                        </TableView>
+                                        <TableView fx:id="salidasTardeTableView" styleClass="table-view" visible="false" VBox.vgrow="ALWAYS">
+                                            <columns>
+                                                <TableColumn fx:id="fechaSalidaTardeCol" prefWidth="185.0" styleClass="date-time-column" text="Fecha y Hora">
+                                                    <styleClass>
+                                                        <String fx:value="date-time-column" />
+                                                    </styleClass>
+                                                </TableColumn>
+                                                <TableColumn fx:id="tipoSalidaTardeCol" prefWidth="125.0" styleClass="table-column" text="Tipo" />
+                                                <TableColumn fx:id="estadoSalidaTardeCol" prefWidth="125.0" styleClass="table-column" text="Estado" />
+                                                <TableColumn fx:id="iconosSalidaTardeColumn" prefWidth="143.0" styleClass="table-column" text="Iconos" />
+                                            </columns>
+                                        </TableView>
+                                    </StackPane>
+                                </VBox>
                             </content>
                         </Tab>
 
