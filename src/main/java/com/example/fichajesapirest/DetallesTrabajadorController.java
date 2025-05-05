@@ -27,6 +27,13 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import javafx.scene.control.DatePicker;
+import javafx.animation.FadeTransition;
+import javafx.animation.ScaleTransition;
+import javafx.animation.TranslateTransition;
+import javafx.util.Duration;
+import javafx.scene.Node;
+import javafx.stage.WindowEvent;
+import javafx.scene.Scene;
 
 public class DetallesTrabajadorController implements Initializable {
     @FXML
@@ -178,6 +185,51 @@ public class DetallesTrabajadorController implements Initializable {
                 filtrarPorFecha();
             }
         });
+
+        // Aplicar animaciones a los elementos principales
+        animateElement(nombreLabel, 100);
+        animateElement(apellidosLabel, 150);
+        animateElement(dniLabel, 200);
+        animateElement(horarioLabel, 250);
+        animateElement(periodoFiltro, 300);
+        animateElement(calendarioTrabajo, 350);
+
+        // Configurar el listener para el cierre de la ventana después de que la escena esté disponible
+        nombreLabel.sceneProperty().addListener((obs, oldScene, newScene) -> {
+            if (newScene != null) {
+                Stage stage = (Stage) newScene.getWindow();
+                stage.setOnCloseRequest(this::limpiarRecursos);
+            }
+        });
+        
+        // Configurar listeners para los filtros
+        periodoFiltro.valueProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null) {
+                filtrarPorFecha();
+            }
+        });
+
+        fechaPersonalizada.valueProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null) {
+                filtrarPorFecha();
+            }
+        });
+    }
+
+    private void animateElement(Node node, int delay) {
+        node.setOpacity(0);
+        node.setTranslateY(20);
+
+        FadeTransition fadeIn = new FadeTransition(Duration.millis(300), node);
+        fadeIn.setToValue(1);
+        fadeIn.setDelay(Duration.millis(delay));
+
+        TranslateTransition translateIn = new TranslateTransition(Duration.millis(300), node);
+        translateIn.setToY(0);
+        translateIn.setDelay(Duration.millis(delay));
+
+        fadeIn.play();
+        translateIn.play();
     }
 
     private void configurarCalendario() {
@@ -456,19 +508,19 @@ public class DetallesTrabajadorController implements Initializable {
             }
 
             if (fechaInicio != null) {
-                registrosFiltrados = registrosFiltrados.stream()
-                        .filter(registro -> {
-                            try {
-                                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-                                LocalDateTime fechaRegistro = LocalDateTime.parse(registro.getFechaHora(), formatter);
-                                LocalDate fecha = fechaRegistro.toLocalDate();
+            registrosFiltrados = registrosFiltrados.stream()
+                    .filter(registro -> {
+                        try {
+                            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                            LocalDateTime fechaRegistro = LocalDateTime.parse(registro.getFechaHora(), formatter);
+                            LocalDate fecha = fechaRegistro.toLocalDate();
                                 return !fecha.isBefore(fechaInicio) && !fecha.isAfter(fechaFin);
-                            } catch (Exception e) {
-                                System.err.println("Error al filtrar por fecha: " + e.getMessage());
-                                return false;
-                            }
-                        })
-                        .collect(Collectors.toList());
+                        } catch (Exception e) {
+                            System.err.println("Error al filtrar por fecha: " + e.getMessage());
+                            return false;
+                        }
+                    })
+                    .collect(Collectors.toList());
             }
         }
 
@@ -728,6 +780,14 @@ public class DetallesTrabajadorController implements Initializable {
                         LocalDateTime fecha = LocalDateTime.parse(item, parser);
                         setText(fecha.format(formatter));
                         getStyleClass().add("date-time-cell");
+                        
+                        // Añadir efecto de pulsación
+                        setOnMousePressed(e -> {
+                            setStyle("-fx-background-color: #e0e0e0;");
+                        });
+                        setOnMouseReleased(e -> {
+                            setStyle("");
+                        });
                     } catch (Exception e) {
                         setText(item);
                     }
@@ -735,8 +795,29 @@ public class DetallesTrabajadorController implements Initializable {
             }
         });
 
-        // Aplicar estilos a las columnas
-        estadoCol.getStyleClass().add("estado-column");
+        // Aplicar estilos y efectos de pulsación a las columnas
+        estadoCol.setCellFactory(column -> new TableCell<RegistroFichaje, String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    setText(item);
+                    getStyleClass().add("estado-column");
+                    
+                    // Añadir efecto de pulsación
+                    setOnMousePressed(e -> {
+                        setStyle("-fx-background-color: #e0e0e0;");
+                    });
+                    setOnMouseReleased(e -> {
+                        setStyle("");
+                    });
+                }
+            }
+        });
+
         iconosCol.getStyleClass().add("iconos-column");
     }
 
@@ -834,5 +915,28 @@ public class DetallesTrabajadorController implements Initializable {
         salidasMananaTableView.setVisible(false);
         salidasTardeTableView.setVisible(true);
         menuSalidas.setText("Tarde");
+    }
+
+    private void limpiarRecursos(WindowEvent event) {
+        // Limpiar referencias a objetos grandes
+        fichajesTrabajador = null;
+        fichajesOriginales = null;
+        diasTrabajados.clear();
+        
+        // Limpiar las tablas
+        entradasMananaTableView.getItems().clear();
+        entradasTardeTableView.getItems().clear();
+        salidasMananaTableView.getItems().clear();
+        salidasTardeTableView.getItems().clear();
+        
+        // Limpiar los DatePickers
+        calendarioTrabajo.setValue(null);
+        fechaPersonalizada.setValue(null);
+        
+        // Limpiar los campos de texto
+        horaEntradaMananaField.clear();
+        horaSalidaMananaField.clear();
+        horaEntradaTardeField.clear();
+        horaSalidaTardeField.clear();
     }
 }

@@ -6,18 +6,22 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
-import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
-import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
+import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
-import javafx.util.Callback;
 import javafx.util.Duration;
 
 import java.io.File;
@@ -28,38 +32,22 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class TablaFirebaseApp {
-
-    @FXML private TableView<Trabajador> tableView;
-    @FXML private TableColumn<Trabajador, String> nombreCol;
-    @FXML private TableColumn<Trabajador, String> apellidosCol;
+    @FXML private FlowPane trabajadoresGrid;
+    @FXML private TextField buscadorTextField;
     @FXML private Button actualizarButton;
     @FXML private Button exportarButton;
     @FXML private DatePicker fechaDesde;
     @FXML private DatePicker fechaHasta;
-    @FXML private TextField buscadorTextField;
 
     private FirebaseRESTExample firebase = new FirebaseRESTExample();
     private ObservableList<Trabajador> trabajadores = FXCollections.observableArrayList();
 
     @FXML
     public void initialize() {
-        // Configurar las columnas
-        nombreCol.setCellValueFactory(new PropertyValueFactory<>("nombre"));
-        apellidosCol.setCellValueFactory(new PropertyValueFactory<>("apellidos"));
-
-        // Configurar la tabla para que no permita seleccionar filas vacías
-        tableView.setRowFactory(tv -> {
-            TableRow<Trabajador> row = new TableRow<>();
-            row.setOnMouseClicked(event -> {
-                if (!row.isEmpty()) {
-                    abrirDetallesTrabajador(event);
-                }
-            });
-            return row;
-        });
-
         // Cargar los trabajadores
         cargarTrabajadores();
         
@@ -71,51 +59,100 @@ public class TablaFirebaseApp {
 
     private void cargarTrabajadores() {
         try {
-            System.out.println("Iniciando carga de trabajadores...");
             trabajadores.clear();
+            trabajadoresGrid.getChildren().clear();
             List<Trabajador> listaTrabajadores = firebase.obtenerTrabajadores();
-            System.out.println("Trabajadores obtenidos de Firebase: " + listaTrabajadores.size());
             
             if (listaTrabajadores.isEmpty()) {
-                System.out.println("No se encontraron trabajadores en la base de datos");
                 mostrarAlerta("Información", "No se encontraron trabajadores en la base de datos");
             } else {
                 trabajadores.addAll(listaTrabajadores);
-                System.out.println("Trabajadores añadidos a la tabla: " + trabajadores.size());
-                tableView.setItems(trabajadores);
-                System.out.println("Tabla actualizada con los trabajadores");
+                for (Trabajador trabajador : trabajadores) {
+                    VBox card = crearTarjetaTrabajador(trabajador);
+                    card.setOnMouseClicked((MouseEvent event) -> {
+                        if (event.getClickCount() == 1) {
+                            abrirDetallesTrabajador(trabajador);
+                        }
+                    });
+                    trabajadoresGrid.getChildren().add(card);
+                }
             }
         } catch (Exception e) {
-            System.err.println("Error al cargar trabajadores: " + e.getMessage());
-            e.printStackTrace();
             mostrarAlerta("Error", "No se pudieron cargar los trabajadores: " + e.getMessage());
         }
     }
 
-    @FXML
-    private void abrirDetallesTrabajador(MouseEvent event) {
-        if (event.getClickCount() == 1) { // Solo procesar clics simples
-            Trabajador trabajadorSeleccionado = tableView.getSelectionModel().getSelectedItem();
-            if (trabajadorSeleccionado != null) {
-                try {
-                    // Obtener los fichajes del trabajador
-                    List<RegistroFichaje> fichajes = firebase.obtenerFichajesTrabajador(trabajadorSeleccionado.getDni());
-                    
-                    FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/example/fichajesapirest/detalles_trabajador.fxml"));
-                    Parent root = loader.load();
-                    
-                    DetallesTrabajadorController controller = loader.getController();
-                    controller.setTrabajador(trabajadorSeleccionado, fichajes);
-                    
-                    Stage stage = new Stage();
-                    stage.setTitle("Detalles del Trabajador");
-                    stage.setScene(new Scene(root));
-                    stage.setMaximized(true);
-                    stage.show();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+    private VBox crearTarjetaTrabajador(Trabajador trabajador) {
+        VBox card = new VBox(10);
+        card.setStyle("-fx-background-color: white; -fx-background-radius: 10; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0, 0, 2); -fx-padding: 15; -fx-pref-width: 250;");
+        card.setAlignment(Pos.CENTER);
+        
+        // Cambiar el cursor a mano para toda la tarjeta
+        card.setCursor(javafx.scene.Cursor.HAND);
+        card.setOnMouseEntered(e -> {
+            card.setCursor(javafx.scene.Cursor.HAND);
+            card.setStyle("-fx-background-color: #e8f5e9; -fx-background-radius: 10; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 15, 0, 0, 3); -fx-padding: 15; -fx-pref-width: 250; -fx-scale-x: 1.02; -fx-scale-y: 1.02;");
+        });
+
+        card.setOnMouseExited(e -> {
+            card.setCursor(javafx.scene.Cursor.HAND);
+            card.setStyle("-fx-background-color: white; -fx-background-radius: 10; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0, 0, 2); -fx-padding: 15; -fx-pref-width: 250; -fx-scale-x: 1.0; -fx-scale-y: 1.0;");
+        });
+
+        // Iniciales del trabajador
+        Circle avatar = new Circle(30);
+        avatar.setFill(Color.valueOf("#4CAF50"));
+        Text iniciales = new Text(trabajador.getNombre().substring(0, 1) + trabajador.getApellidos().substring(0, 1));
+        iniciales.setFill(Color.WHITE);
+        iniciales.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
+        StackPane avatarContainer = new StackPane(avatar, iniciales);
+        avatarContainer.setCursor(javafx.scene.Cursor.HAND);
+
+        // Nombre y apellidos
+        Label nombreLabel = new Label(trabajador.getNombre());
+        nombreLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+        nombreLabel.setCursor(javafx.scene.Cursor.HAND);
+        
+        Label apellidosLabel = new Label(trabajador.getApellidos());
+        apellidosLabel.setStyle("-fx-font-size: 14px;");
+        apellidosLabel.setCursor(javafx.scene.Cursor.HAND);
+
+        card.getChildren().addAll(avatarContainer, nombreLabel, apellidosLabel);
+
+        // Efecto de pulsación
+        card.setOnMousePressed(e -> {
+            card.setStyle("-fx-background-color: #c8e6c9; -fx-background-radius: 10; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 10, 0, 0, 2); -fx-padding: 15; -fx-pref-width: 250; -fx-scale-x: 0.98; -fx-scale-y: 0.98;");
+        });
+
+        card.setOnMouseReleased(e -> {
+            card.setStyle("-fx-background-color: #e8f5e9; -fx-background-radius: 10; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 15, 0, 0, 3); -fx-padding: 15; -fx-pref-width: 250; -fx-scale-x: 1.02; -fx-scale-y: 1.02;");
+        });
+
+        // Evento de clic
+        card.setOnMouseClicked((MouseEvent event) -> {
+            if (event.getClickCount() == 1) {
+                abrirDetallesTrabajador(trabajador);
             }
+        });
+
+        return card;
+    }
+
+    private void abrirDetallesTrabajador(Trabajador trabajador) {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/example/fichajesapirest/detalles_trabajador.fxml"));
+            Parent root = loader.load();
+            
+            DetallesTrabajadorController controller = loader.getController();
+            controller.setTrabajador(trabajador, firebase.obtenerFichajesTrabajador(trabajador.getDni()));
+            
+            Stage stage = new Stage();
+            stage.setTitle("Detalles del Trabajador");
+            stage.setScene(new Scene(root));
+            stage.setMaximized(true);
+            stage.show();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
@@ -170,7 +207,8 @@ public class TablaFirebaseApp {
         
         if (textoBuscado.isEmpty()) {
             // Si no hay texto de búsqueda, mostrar todos los trabajadores
-            tableView.setItems(trabajadores);
+            trabajadoresGrid.getChildren().clear();
+            trabajadoresGrid.getChildren().addAll(trabajadores.stream().map(this::crearTarjetaTrabajador).collect(Collectors.toList()));
             return;
         }
 
@@ -183,6 +221,7 @@ public class TablaFirebaseApp {
             }
         }
 
-        tableView.setItems(filtrado);
+        trabajadoresGrid.getChildren().clear();
+        trabajadoresGrid.getChildren().addAll(filtrado.stream().map(this::crearTarjetaTrabajador).collect(Collectors.toList()));
     }
 }
