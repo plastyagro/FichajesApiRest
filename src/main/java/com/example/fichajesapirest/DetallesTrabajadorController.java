@@ -5,7 +5,7 @@ import javafx.fxml.Initializable;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;                                                        
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
@@ -34,6 +34,9 @@ import javafx.util.Duration;
 import javafx.scene.Node;
 import javafx.stage.WindowEvent;
 import javafx.scene.Scene;
+import javafx.scene.input.MouseButton;
+import javafx.scene.layout.Region;
+import java.time.temporal.ChronoUnit;
 
 public class DetallesTrabajadorController implements Initializable {
     @FXML
@@ -143,6 +146,7 @@ public class DetallesTrabajadorController implements Initializable {
         // Cargar las imágenes
         Image verde = new Image(getClass().getResource("/verde.png").toExternalForm());
         Image rojo = new Image(getClass().getResource("/rojo.png").toExternalForm());
+        Image advertencia = new Image(getClass().getResource("/advertencia_icono.png").toExternalForm());
 
         // Configurar las columnas de las tablas de entradas
         configurarColumnasTabla(fechaEntradaMananaCol, tipoEntradaMananaCol, estadoEntradaMananaCol, iconosEntradaMananaColumn);
@@ -153,10 +157,10 @@ public class DetallesTrabajadorController implements Initializable {
         configurarColumnasTabla(fechaSalidaTardeCol, tipoSalidaTardeCol, estadoSalidaTardeCol, iconosSalidaTardeColumn);
 
         // Configurar las columnas de iconos para todas las tablas
-        configurarColumnasIconos(iconosEntradaMananaColumn, verde, rojo);
-        configurarColumnasIconos(iconosEntradaTardeColumn, verde, rojo);
-        configurarColumnasIconos(iconosSalidaMananaColumn, verde, rojo);
-        configurarColumnasIconos(iconosSalidaTardeColumn, verde, rojo);
+        configurarColumnasIconos(iconosEntradaMananaColumn, verde, rojo, advertencia);
+        configurarColumnasIconos(iconosEntradaTardeColumn, verde, rojo, advertencia);
+        configurarColumnasIconos(iconosSalidaMananaColumn, verde, rojo, advertencia);
+        configurarColumnasIconos(iconosSalidaTardeColumn, verde, rojo, advertencia);
 
         // Configurar el calendario
         configurarCalendario();
@@ -164,7 +168,7 @@ public class DetallesTrabajadorController implements Initializable {
         // Configurar los menús
         menuEntradas.setText("Mañana");
         menuSalidas.setText("Mañana");
-        
+
         // Mostrar las tablas de mañana por defecto
         mostrarEntradasManana();
         mostrarSalidasManana();
@@ -201,7 +205,7 @@ public class DetallesTrabajadorController implements Initializable {
                 stage.setOnCloseRequest(this::limpiarRecursos);
             }
         });
-        
+
         // Configurar listeners para los filtros
         periodoFiltro.valueProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
@@ -508,19 +512,19 @@ public class DetallesTrabajadorController implements Initializable {
             }
 
             if (fechaInicio != null) {
-            registrosFiltrados = registrosFiltrados.stream()
-                    .filter(registro -> {
-                        try {
-                            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-                            LocalDateTime fechaRegistro = LocalDateTime.parse(registro.getFechaHora(), formatter);
-                            LocalDate fecha = fechaRegistro.toLocalDate();
+                registrosFiltrados = registrosFiltrados.stream()
+                        .filter(registro -> {
+                            try {
+                                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                                LocalDateTime fechaRegistro = LocalDateTime.parse(registro.getFechaHora(), formatter);
+                                LocalDate fecha = fechaRegistro.toLocalDate();
                                 return !fecha.isBefore(fechaInicio) && !fecha.isAfter(fechaFin);
-                        } catch (Exception e) {
-                            System.err.println("Error al filtrar por fecha: " + e.getMessage());
-                            return false;
-                        }
-                    })
-                    .collect(Collectors.toList());
+                            } catch (Exception e) {
+                                System.err.println("Error al filtrar por fecha: " + e.getMessage());
+                                return false;
+                            }
+                        })
+                        .collect(Collectors.toList());
             }
         }
 
@@ -757,9 +761,9 @@ public class DetallesTrabajadorController implements Initializable {
     }
 
     private void configurarColumnasTabla(TableColumn<RegistroFichaje, String> fechaCol,
-                                       TableColumn<RegistroFichaje, String> tipoCol,
-                                       TableColumn<RegistroFichaje, String> estadoCol,
-                                       TableColumn<RegistroFichaje, String> iconosCol) {
+                                         TableColumn<RegistroFichaje, String> tipoCol,
+                                         TableColumn<RegistroFichaje, String> estadoCol,
+                                         TableColumn<RegistroFichaje, String> iconosCol) {
         fechaCol.setCellValueFactory(new PropertyValueFactory<>("fechaHora"));
         tipoCol.setCellValueFactory(new PropertyValueFactory<>("tipo"));
         estadoCol.setCellValueFactory(new PropertyValueFactory<>("estado"));
@@ -780,7 +784,7 @@ public class DetallesTrabajadorController implements Initializable {
                         LocalDateTime fecha = LocalDateTime.parse(item, parser);
                         setText(fecha.format(formatter));
                         getStyleClass().add("date-time-cell");
-                        
+
                         // Añadir efecto de pulsación
                         setOnMousePressed(e -> {
                             setStyle("-fx-background-color: #e0e0e0;");
@@ -806,7 +810,7 @@ public class DetallesTrabajadorController implements Initializable {
                 } else {
                     setText(item);
                     getStyleClass().add("estado-column");
-                    
+
                     // Añadir efecto de pulsación
                     setOnMousePressed(e -> {
                         setStyle("-fx-background-color: #e0e0e0;");
@@ -821,7 +825,7 @@ public class DetallesTrabajadorController implements Initializable {
         iconosCol.getStyleClass().add("iconos-column");
     }
 
-    private void configurarColumnasIconos(TableColumn<RegistroFichaje, String> col, Image verde, Image rojo) {
+    private void configurarColumnasIconos(TableColumn<RegistroFichaje, String> col, Image verde, Image rojo, Image advertencia) {
         col.setCellFactory(column -> new TableCell<>() {
             @Override
             protected void updateItem(String item, boolean empty) {
@@ -868,13 +872,61 @@ public class DetallesTrabajadorController implements Initializable {
                                     break;
                                 case "Retrasada":
                                 case "Tardía":
+                                    // Añadir iconos de colores
                                     ImageView iconoVerde3 = new ImageView(verde);
                                     iconoVerde3.setFitHeight(16);
                                     iconoVerde3.setFitWidth(16);
                                     ImageView iconoRojo2 = new ImageView(rojo);
                                     iconoRojo2.setFitHeight(16);
                                     iconoRojo2.setFitWidth(16);
-                                    iconos.getChildren().addAll(iconoVerde3, iconoRojo2);
+                                    
+                                    // Añadir un espacio
+                                    Region espacio = new Region();
+                                    espacio.setPrefWidth(10);
+                                    
+                                    // Añadir icono de advertencia con evento de clic
+                                    ImageView iconoAdvertencia = new ImageView(advertencia);
+                                    iconoAdvertencia.setFitHeight(16);
+                                    iconoAdvertencia.setFitWidth(16);
+                                    iconoAdvertencia.setStyle("-fx-cursor: hand;"); // Cambiar el cursor al pasar por encima
+                                    
+                                    // Calcular el tiempo de retraso
+                                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                                    LocalDateTime fechaRegistro = LocalDateTime.parse(registro.getFechaHora(), formatter);
+                                    LocalTime horaRegistro = fechaRegistro.toLocalTime();
+                                    
+                                    LocalTime horaEsperada;
+                                    if (tipo.equals("entrada")) {
+                                        horaEsperada = fechaRegistro.toLocalTime().isBefore(LocalTime.of(14, 0)) ?
+                                            LocalTime.parse(formatearHora(trabajador.getHoraEntradaManana())) :
+                                            LocalTime.parse(formatearHora(trabajador.getHoraEntradaTarde()));
+                                    } else {
+                                        horaEsperada = fechaRegistro.toLocalTime().isBefore(LocalTime.of(14, 0)) ?
+                                            LocalTime.parse(formatearHora(trabajador.getHoraSalidaManana())) :
+                                            LocalTime.parse(formatearHora(trabajador.getHoraSalidaTarde()));
+                                    }
+                                    
+                                    long minutosRetraso = ChronoUnit.MINUTES.between(horaEsperada, horaRegistro);
+                                    
+                                    // Añadir evento de clic
+                                    iconoAdvertencia.setOnMouseClicked(event -> {
+                                        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                                        alert.setTitle("Detalles del Retraso");
+                                        alert.setHeaderText(null);
+                                        alert.setContentText(String.format(
+                                            "Tipo: %s\n" +
+                                            "Hora esperada: %s\n" +
+                                            "Hora real: %s\n" +
+                                            "Tiempo de retraso: %d minutos",
+                                            tipo.equals("entrada") ? "Entrada" : "Salida",
+                                            horaEsperada.format(DateTimeFormatter.ofPattern("HH:mm")),
+                                            horaRegistro.format(DateTimeFormatter.ofPattern("HH:mm")),
+                                            minutosRetraso
+                                        ));
+                                        alert.showAndWait();
+                                    });
+                                    
+                                    iconos.getChildren().addAll(iconoVerde3, iconoRojo2, espacio, iconoAdvertencia);
                                     break;
                             }
                         }
@@ -922,17 +974,17 @@ public class DetallesTrabajadorController implements Initializable {
         fichajesTrabajador = null;
         fichajesOriginales = null;
         diasTrabajados.clear();
-        
+
         // Limpiar las tablas
         entradasMananaTableView.getItems().clear();
         entradasTardeTableView.getItems().clear();
         salidasMananaTableView.getItems().clear();
         salidasTardeTableView.getItems().clear();
-        
+
         // Limpiar los DatePickers
         calendarioTrabajo.setValue(null);
         fechaPersonalizada.setValue(null);
-        
+
         // Limpiar los campos de texto
         horaEntradaMananaField.clear();
         horaSalidaMananaField.clear();

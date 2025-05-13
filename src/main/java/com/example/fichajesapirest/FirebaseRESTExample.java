@@ -1,15 +1,9 @@
 package com.example.fichajesapirest;
 
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
 import org.json.JSONArray;
 import org.json.JSONObject;
-import com.mashape.unirest.http.HttpResponse;
-import com.mashape.unirest.http.Unirest;
-
 import javax.net.ssl.HttpsURLConnection;
 import java.io.*;
-import java.lang.reflect.Type;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -342,7 +336,11 @@ public class FirebaseRESTExample {
                                     fields.getJSONObject("horaEntradaTarde").getString("stringValue") : "15:30");
                                 trabajador.setHoraSalidaTarde(fields.has("horaSalidaTarde") ? 
                                     fields.getJSONObject("horaSalidaTarde").getString("stringValue") : "17:00");
-                                trabajador.setCorreo(doc.getString("name").split("/")[doc.getString("name").split("/").length - 1]);
+                                
+                                // Obtener el ID del documento
+                                String documentId = doc.getString("name").split("/")[doc.getString("name").split("/").length - 1];
+                                trabajador.setId(documentId);
+                                trabajador.setCorreo(documentId); // Establecer el ID como correo
                                 
                                 trabajadores.add(trabajador);
                             }

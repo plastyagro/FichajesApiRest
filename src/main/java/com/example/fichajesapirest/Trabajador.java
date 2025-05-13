@@ -17,6 +17,7 @@ public class Trabajador {
     @SerializedName("hora_salida_tarde")
     private String horaSalidaTarde;
     private String correo;
+    private String id;
     private List<RegistroFichaje> fichajes;
 
     // Constructor vacío
@@ -62,7 +63,11 @@ public class Trabajador {
     }
 
     public String getCorreo() {
-        return correo;
+        return correo != null && !correo.isEmpty() ? correo : id;
+    }
+
+    public String getId() {
+        return id;
     }
 
     public List<RegistroFichaje> getFichajes() {
@@ -100,6 +105,10 @@ public class Trabajador {
 
     public void setCorreo(String correo) {
         this.correo = correo;
+    }
+
+    public void setId(String id) {
+        this.id = id;
     }
 
     public void setFichajes(List<RegistroFichaje> fichajes) {
