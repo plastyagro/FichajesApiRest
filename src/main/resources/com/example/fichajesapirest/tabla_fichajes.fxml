@@ -32,7 +32,7 @@
                 </ImageView>
                 <TextField fx:id="buscadorTextField" onKeyReleased="#filtrarPorFecha" prefHeight="40.0" prefWidth="750.0" promptText="Buscar por nombre o apellidos..." styleClass="buscador" />
             </HBox>
-        </HBox>
+    </HBox>
 
         <!-- Grid de tarjetas -->
         <FlowPane fx:id="trabajadoresGrid" hgap="20" vgap="20" prefWidth="1200.0" prefHeight="600.0" style="-fx-padding: 20; -fx-alignment: center; -fx-background-color: transparent;">

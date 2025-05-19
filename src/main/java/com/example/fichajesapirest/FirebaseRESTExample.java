@@ -171,6 +171,8 @@ public class FirebaseRESTExample {
         fields.put("dni", new JSONObject().put("stringValue", trabajador.getDni()));
         fields.put("nombre", new JSONObject().put("stringValue", trabajador.getNombre()));
         fields.put("apellidos", new JSONObject().put("stringValue", trabajador.getApellidos()));
+        fields.put("vacaciones_desde", new JSONObject().put("stringValue", trabajador.getVacacionesDesde()));
+        fields.put("vacaciones_hasta", new JSONObject().put("stringValue", trabajador.getVacacionesHasta()));
 
         JSONObject document = new JSONObject();
         document.put("fields", fields);
@@ -336,6 +338,10 @@ public class FirebaseRESTExample {
                                     fields.getJSONObject("horaEntradaTarde").getString("stringValue") : "15:30");
                                 trabajador.setHoraSalidaTarde(fields.has("horaSalidaTarde") ? 
                                     fields.getJSONObject("horaSalidaTarde").getString("stringValue") : "17:00");
+                                trabajador.setVacacionesDesde(fields.has("vacaciones_desde") ? 
+                                    fields.getJSONObject("vacaciones_desde").getString("stringValue") : "");
+                                trabajador.setVacacionesHasta(fields.has("vacaciones_hasta") ? 
+                                    fields.getJSONObject("vacaciones_hasta").getString("stringValue") : "");
                                 
                                 // Obtener el ID del documento
                                 String documentId = doc.getString("name").split("/")[doc.getString("name").split("/").length - 1];

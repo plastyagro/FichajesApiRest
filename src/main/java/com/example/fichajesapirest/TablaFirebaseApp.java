@@ -140,19 +140,19 @@ public class TablaFirebaseApp {
 
     private void abrirDetallesTrabajador(Trabajador trabajador) {
         try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/example/fichajesapirest/detalles_trabajador.fxml"));
-            Parent root = loader.load();
-            
-            DetallesTrabajadorController controller = loader.getController();
+                    FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/example/fichajesapirest/detalles_trabajador.fxml"));
+                    Parent root = loader.load();
+                    
+                    DetallesTrabajadorController controller = loader.getController();
             controller.setTrabajador(trabajador, firebase.obtenerFichajesTrabajador(trabajador.getDni()));
-            
-            Stage stage = new Stage();
-            stage.setTitle("Detalles del Trabajador");
-            stage.setScene(new Scene(root));
+                    
+                    Stage stage = new Stage();
+                    stage.setTitle("Detalles del Trabajador");
+                    stage.setScene(new Scene(root));
             stage.setMaximized(true);
-            stage.show();
-        } catch (IOException e) {
-            e.printStackTrace();
+                    stage.show();
+                } catch (IOException e) {
+                    e.printStackTrace();
         }
     }
 
@@ -214,10 +214,10 @@ public class TablaFirebaseApp {
 
         ObservableList<Trabajador> filtrado = FXCollections.observableArrayList();
 
-        for (Trabajador trabajador : trabajadores) {
-            String nombreCompleto = (trabajador.getNombre() + " " + trabajador.getApellidos()).toLowerCase();
+            for (Trabajador trabajador : trabajadores) {
+                    String nombreCompleto = (trabajador.getNombre() + " " + trabajador.getApellidos()).toLowerCase();
             if (nombreCompleto.contains(textoBuscado)) {
-                filtrado.add(trabajador);
+                        filtrado.add(trabajador);
             }
         }
 

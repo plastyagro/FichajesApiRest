@@ -5,7 +5,7 @@ import javafx.fxml.Initializable;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
+import javafx.scene.image.ImageView;                                                        
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
@@ -37,6 +37,7 @@ import javafx.scene.Scene;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.Region;
 import java.time.temporal.ChronoUnit;
+import javafx.beans.property.SimpleStringProperty;
 
 public class DetallesTrabajadorController implements Initializable {
     @FXML
@@ -135,6 +136,22 @@ public class DetallesTrabajadorController implements Initializable {
     private Label indicadorRetrasos;
     @FXML
     private Label indicadorAusencias;
+    @FXML
+    private DatePicker vacacionesDesdePicker;
+    @FXML
+    private DatePicker vacacionesHastaPicker;
+    @FXML
+    private Button guardarVacacionesButton;
+    @FXML
+    private Button eliminarVacacionesButton;
+    @FXML
+    private TableView<Festivo> festivosTableView;
+    @FXML
+    private TableColumn<Festivo, String> fechaFestivoCol;
+    @FXML
+    private TableColumn<Festivo, String> nombreFestivoCol;
+    @FXML
+    private TableColumn<Festivo, String> tipoFestivoCol;
 
     private Trabajador trabajador;
     private List<RegistroFichaje> fichajesTrabajador;
@@ -218,6 +235,17 @@ public class DetallesTrabajadorController implements Initializable {
                 filtrarPorFecha();
             }
         });
+
+        // Configurar las columnas de la tabla de festivos
+        fechaFestivoCol.setCellValueFactory(cellData -> {
+            Festivo festivo = cellData.getValue();
+            return new SimpleStringProperty(festivo.getFecha().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+        });
+        nombreFestivoCol.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getNombre()));
+        tipoFestivoCol.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getTipo()));
+
+        // Cargar los festivos del año actual
+        cargarFestivos();
     }
 
     private void animateElement(Node node, int delay) {
@@ -284,7 +312,9 @@ public class DetallesTrabajadorController implements Initializable {
                 .append("Días totales: ").append(fecha.lengthOfMonth()).append("\n")
                 .append("Porcentaje: ").append(String.format("%.1f", (diasTrabajadosMes * 100.0 / fecha.lengthOfMonth()))).append("%");
 
+        if (resumenMensualLabel != null) {
         resumenMensualLabel.setText(resumen.toString());
+        }
     }
 
     private void actualizarCalendario() {
@@ -331,6 +361,65 @@ public class DetallesTrabajadorController implements Initializable {
                 formatearHora(trabajador.getHoraEntradaTarde()),
                 formatearHora(trabajador.getHoraSalidaTarde()));
         horarioLabel.setText(horario);
+
+        // Actualizar las fechas de vacaciones
+        if (trabajador.getVacacionesDesde() != null && !trabajador.getVacacionesDesde().isEmpty()) {
+            try {
+                LocalDate fechaDesde = LocalDate.parse(trabajador.getVacacionesDesde());
+                vacacionesDesdePicker.setValue(fechaDesde);
+                
+                // Verificar si el trabajador está actualmente de vacaciones
+                LocalDate hoy = LocalDate.now();
+                
+                if (trabajador.getVacacionesHasta() != null && !trabajador.getVacacionesHasta().isEmpty()) {
+                    LocalDate fechaHasta = LocalDate.parse(trabajador.getVacacionesHasta());
+                    vacacionesHastaPicker.setValue(fechaHasta);
+                    
+                    Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                    alert.setTitle("Información de Vacaciones");
+                    alert.setHeaderText(null);
+                    
+                    if (!hoy.isBefore(fechaDesde) && !hoy.isAfter(fechaHasta)) {
+                        // El trabajador está actualmente de vacaciones
+                        long diasRestantes = ChronoUnit.DAYS.between(hoy, fechaHasta);
+                        alert.setContentText(String.format(
+                            "El trabajador %s %s está actualmente de vacaciones.\n" +
+                            "Días restantes: %d días",
+                            trabajador.getNombre(),
+                            trabajador.getApellidos(),
+                            diasRestantes
+                        ));
+                    } else if (hoy.isBefore(fechaDesde)) {
+                        // Las vacaciones son futuras
+                        long diasHastaVacaciones = ChronoUnit.DAYS.between(hoy, fechaDesde);
+                        long duracionVacaciones = ChronoUnit.DAYS.between(fechaDesde, fechaHasta) + 1;
+                        alert.setContentText(String.format(
+                            "El trabajador %s %s tiene vacaciones programadas.\n" +
+                            "Faltan %d días para el inicio de las vacaciones.\n" +
+                            "Duración: %d días",
+                            trabajador.getNombre(),
+                            trabajador.getApellidos(),
+                            diasHastaVacaciones,
+                            duracionVacaciones
+                        ));
+                    } else {
+                        // Las vacaciones ya pasaron
+                        alert.setContentText(String.format(
+                            "El trabajador %s %s ya ha disfrutado de sus vacaciones.\n" +
+                            "Período: del %s al %s",
+                            trabajador.getNombre(),
+                            trabajador.getApellidos(),
+                            fechaDesde.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                            fechaHasta.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                        ));
+                    }
+                    alert.showAndWait();
+                }
+            } catch (Exception e) {
+                System.err.println("Error al procesar fechas de vacaciones: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }
 
         // Calcular estadísticas
         calcularEstadisticas();
@@ -512,19 +601,19 @@ public class DetallesTrabajadorController implements Initializable {
             }
 
             if (fechaInicio != null) {
-                registrosFiltrados = registrosFiltrados.stream()
-                        .filter(registro -> {
-                            try {
-                                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-                                LocalDateTime fechaRegistro = LocalDateTime.parse(registro.getFechaHora(), formatter);
-                                LocalDate fecha = fechaRegistro.toLocalDate();
+            registrosFiltrados = registrosFiltrados.stream()
+                    .filter(registro -> {
+                        try {
+                            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                            LocalDateTime fechaRegistro = LocalDateTime.parse(registro.getFechaHora(), formatter);
+                            LocalDate fecha = fechaRegistro.toLocalDate();
                                 return !fecha.isBefore(fechaInicio) && !fecha.isAfter(fechaFin);
-                            } catch (Exception e) {
-                                System.err.println("Error al filtrar por fecha: " + e.getMessage());
-                                return false;
-                            }
-                        })
-                        .collect(Collectors.toList());
+                        } catch (Exception e) {
+                            System.err.println("Error al filtrar por fecha: " + e.getMessage());
+                            return false;
+                        }
+                    })
+                    .collect(Collectors.toList());
             }
         }
 
@@ -990,5 +1079,137 @@ public class DetallesTrabajadorController implements Initializable {
         horaSalidaMananaField.clear();
         horaEntradaTardeField.clear();
         horaSalidaTardeField.clear();
+    }
+
+    @FXML
+    private void guardarVacaciones() {
+        try {
+            LocalDate fechaDesde = vacacionesDesdePicker.getValue();
+            LocalDate fechaHasta = vacacionesHastaPicker.getValue();
+
+            if (fechaDesde == null || fechaHasta == null) {
+                mostrarAlerta("Error", "Por favor, seleccione ambas fechas de vacaciones");
+                return;
+            }
+
+            if (fechaDesde.isAfter(fechaHasta)) {
+                mostrarAlerta("Error", "La fecha de inicio no puede ser posterior a la fecha de fin");
+                return;
+            }
+
+            // Actualizar el objeto trabajador
+            trabajador.setVacacionesDesde(fechaDesde.toString());
+            trabajador.setVacacionesHasta(fechaHasta.toString());
+
+            // Guardar en Firebase
+            FirebaseRESTExample.actualizarHorarioTrabajador(trabajador);
+
+            mostrarAlerta("Éxito", "Las vacaciones se han guardado correctamente");
+        } catch (Exception e) {
+            System.err.println("Error al guardar las vacaciones: " + e.getMessage());
+            e.printStackTrace();
+            mostrarAlerta("Error", "No se pudieron guardar las vacaciones: " + e.getMessage());
+        }
+    }
+
+    @FXML
+    private void eliminarVacaciones() {
+        try {
+            // Confirmar la eliminación
+            Alert confirmacion = new Alert(Alert.AlertType.CONFIRMATION);
+            confirmacion.setTitle("Confirmar Eliminación");
+            confirmacion.setHeaderText(null);
+            confirmacion.setContentText("¿Está seguro de que desea eliminar las vacaciones del trabajador?");
+
+            if (confirmacion.showAndWait().get() == ButtonType.OK) {
+                // Limpiar las fechas de vacaciones
+                trabajador.setVacacionesDesde("");
+                trabajador.setVacacionesHasta("");
+
+                // Limpiar los DatePickers
+                vacacionesDesdePicker.setValue(null);
+                vacacionesHastaPicker.setValue(null);
+
+                // Actualizar en Firebase
+                FirebaseRESTExample.actualizarHorarioTrabajador(trabajador);
+
+                mostrarAlerta("Éxito", "Las vacaciones se han eliminado correctamente");
+            }
+        } catch (Exception e) {
+            System.err.println("Error al eliminar las vacaciones: " + e.getMessage());
+            e.printStackTrace();
+            mostrarAlerta("Error", "No se pudieron eliminar las vacaciones: " + e.getMessage());
+        }
+    }
+
+    private void cargarFestivos() {
+        try {
+            System.out.println("Iniciando carga de festivos...");
+            int añoActual = LocalDate.now().getYear();
+            System.out.println("Obteniendo festivos para el año " + añoActual);
+            
+            List<Festivo> festivos = FestivosService.obtenerFestivos(añoActual);
+            System.out.println("Número de festivos obtenidos: " + festivos.size());
+            
+            if (festivos.isEmpty()) {
+                System.err.println("No se obtuvieron festivos");
+                return;
+            }
+            
+            // Ordenar los festivos por fecha
+            festivos.sort((f1, f2) -> f1.getFecha().compareTo(f2.getFecha()));
+            
+            // Configurar el estilo de las celdas
+            fechaFestivoCol.setCellFactory(column -> new TableCell<Festivo, String>() {
+                @Override
+                protected void updateItem(String item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || item == null) {
+                        setText(null);
+                        setStyle("");
+                    } else {
+                        setText(item);
+                        getStyleClass().add("festivo-fecha");
+                    }
+                }
+            });
+
+            nombreFestivoCol.setCellFactory(column -> new TableCell<Festivo, String>() {
+                @Override
+                protected void updateItem(String item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || item == null) {
+                        setText(null);
+                        setStyle("");
+                    } else {
+                        setText(item);
+                        getStyleClass().add("festivo-nombre");
+                    }
+                }
+            });
+
+            tipoFestivoCol.setCellFactory(column -> new TableCell<Festivo, String>() {
+                @Override
+                protected void updateItem(String item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || item == null) {
+                        setText(null);
+                        setStyle("");
+                    } else {
+                        setText(item);
+                        getStyleClass().add("festivo-tipo");
+                    }
+                }
+            });
+            
+            // Actualizar la tabla
+            festivosTableView.getItems().setAll(festivos);
+            System.out.println("Tabla de festivos actualizada con " + festivos.size() + " registros");
+            
+        } catch (Exception e) {
+            System.err.println("Error al cargar festivos: " + e.getMessage());
+            e.printStackTrace();
+            mostrarAlerta("Error", "No se pudieron cargar los festivos: " + e.getMessage());
+        }
     }
 }

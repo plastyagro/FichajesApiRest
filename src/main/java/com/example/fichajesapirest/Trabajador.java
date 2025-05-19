@@ -16,6 +16,10 @@ public class Trabajador {
     private String horaEntradaTarde;
     @SerializedName("hora_salida_tarde")
     private String horaSalidaTarde;
+    @SerializedName("vacaciones_desde")
+    private String vacacionesDesde;
+    @SerializedName("vacaciones_hasta")
+    private String vacacionesHasta;
     private String correo;
     private String id;
     private List<RegistroFichaje> fichajes;
@@ -62,6 +66,14 @@ public class Trabajador {
         return horaSalidaTarde;
     }
 
+    public String getVacacionesDesde() {
+        return vacacionesDesde;
+    }
+
+    public String getVacacionesHasta() {
+        return vacacionesHasta;
+    }
+
     public String getCorreo() {
         return correo != null && !correo.isEmpty() ? correo : id;
     }
@@ -101,6 +113,14 @@ public class Trabajador {
 
     public void setHoraSalidaTarde(String horaSalidaTarde) {
         this.horaSalidaTarde = horaSalidaTarde;
+    }
+
+    public void setVacacionesDesde(String vacacionesDesde) {
+        this.vacacionesDesde = vacacionesDesde;
+    }
+
+    public void setVacacionesHasta(String vacacionesHasta) {
+        this.vacacionesHasta = vacacionesHasta;
     }
 
     public void setCorreo(String correo) {
