@@ -19,6 +19,7 @@ public class RegistroFichaje {
     private List<ImageView> iconos;
     private String advertencia;
     private String estado;
+    private String horarioHistorico;
 
     // Constructor vacío
     public RegistroFichaje() {
@@ -179,6 +180,14 @@ public class RegistroFichaje {
 
     public void setEstado(String estado) {
         this.estado = estado;
+    }
+
+    public String getHorarioHistorico() {
+        return horarioHistorico;
+    }
+
+    public void setHorarioHistorico(String horarioHistorico) {
+        this.horarioHistorico = horarioHistorico;
     }
 
     public void addIcono(ImageView icono) {

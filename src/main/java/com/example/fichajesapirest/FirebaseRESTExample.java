@@ -162,27 +162,39 @@ public class FirebaseRESTExample {
             throw new Exception("No se pudo obtener el token de acceso");
         }
 
-        // Construir el JSON para la actualización
-        JSONObject fields = new JSONObject();
-        fields.put("horaEntradaManana", new JSONObject().put("stringValue", trabajador.getHoraEntradaManana()));
-        fields.put("horaSalidaManana", new JSONObject().put("stringValue", trabajador.getHoraSalidaManana()));
-        fields.put("horaEntradaTarde", new JSONObject().put("stringValue", trabajador.getHoraEntradaTarde()));
-        fields.put("horaSalidaTarde", new JSONObject().put("stringValue", trabajador.getHoraSalidaTarde()));
-        fields.put("dni", new JSONObject().put("stringValue", trabajador.getDni()));
-        fields.put("nombre", new JSONObject().put("stringValue", trabajador.getNombre()));
-        fields.put("apellidos", new JSONObject().put("stringValue", trabajador.getApellidos()));
-        fields.put("vacaciones_desde", new JSONObject().put("stringValue", trabajador.getVacacionesDesde()));
-        fields.put("vacaciones_hasta", new JSONObject().put("stringValue", trabajador.getVacacionesHasta()));
-
-        JSONObject document = new JSONObject();
-        document.put("fields", fields);
-
-        // Construir la URL para actualizar el documento del trabajador usando el correo como ID
+        // Primero obtener el documento actual
         String url = FIREBASE_URL + "/usuarios/" + trabajador.getCorreo();
-
-        // Crear la conexión HTTP
         URL obj = new URL(url);
         HttpsURLConnection con = (HttpsURLConnection) obj.openConnection();
+        con.setRequestMethod("GET");
+        con.setRequestProperty("Authorization", "Bearer " + accessToken);
+        con.setRequestProperty("Content-Type", "application/json");
+
+        // Leer la respuesta actual
+        BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
+        StringBuilder response = new StringBuilder();
+        String inputLine;
+        while ((inputLine = in.readLine()) != null) {
+            response.append(inputLine);
+        }
+        in.close();
+
+        // Parsear el documento actual
+        JSONObject currentDoc = new JSONObject(response.toString());
+        JSONObject currentFields = currentDoc.getJSONObject("fields");
+
+        // Actualizar solo los campos de horario
+        currentFields.put("horaEntradaManana", new JSONObject().put("stringValue", trabajador.getHoraEntradaManana()));
+        currentFields.put("horaSalidaManana", new JSONObject().put("stringValue", trabajador.getHoraSalidaManana()));
+        currentFields.put("horaEntradaTarde", new JSONObject().put("stringValue", trabajador.getHoraEntradaTarde()));
+        currentFields.put("horaSalidaTarde", new JSONObject().put("stringValue", trabajador.getHoraSalidaTarde()));
+
+        // Crear el nuevo documento con todos los campos
+        JSONObject document = new JSONObject();
+        document.put("fields", currentFields);
+
+        // Actualizar el documento
+        con = (HttpsURLConnection) obj.openConnection();
         con.setRequestMethod("POST");
         con.setRequestProperty("Authorization", "Bearer " + accessToken);
         con.setRequestProperty("Content-Type", "application/json");
@@ -198,9 +210,8 @@ public class FirebaseRESTExample {
         // Verificar la respuesta
         int responseCode = con.getResponseCode();
         if (responseCode != 200) {
-            BufferedReader in = new BufferedReader(new InputStreamReader(con.getErrorStream()));
-            StringBuilder response = new StringBuilder();
-            String inputLine;
+            in = new BufferedReader(new InputStreamReader(con.getErrorStream()));
+            response = new StringBuilder();
             while ((inputLine = in.readLine()) != null) {
                 response.append(inputLine);
             }
@@ -209,7 +220,7 @@ public class FirebaseRESTExample {
         }
     }
 
-    public List<RegistroFichaje> obtenerFichajesTrabajador(String dni) {
+    public static List<RegistroFichaje> obtenerFichajesTrabajador(String dni) {
         List<RegistroFichaje> fichajes = new ArrayList<>();
         
         try {
@@ -227,40 +238,44 @@ public class FirebaseRESTExample {
             connection.setRequestProperty("Content-Type", "application/json");
             
             int responseCode = connection.getResponseCode();
-            
-            if (responseCode == HttpURLConnection.HTTP_OK) {
+            if (responseCode == 200) {
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
                     StringBuilder response = new StringBuilder();
                     String line;
-                    
                     while ((line = reader.readLine()) != null) {
                         response.append(line);
                     }
-                    
-                    String jsonResponse = response.toString();
-                    
-                    if (!jsonResponse.equals("null") && !jsonResponse.isEmpty()) {
-                        JSONObject jsonObject = new JSONObject(jsonResponse);
-                        if (jsonObject.has("documents")) {
-                            JSONArray documents = jsonObject.getJSONArray("documents");
+
+                    JSONObject jsonResponse = new JSONObject(response.toString());
+                    if (jsonResponse.has("documents")) {
+                        JSONArray documents = jsonResponse.getJSONArray("documents");
                             
-                            for (int i = 0; i < documents.length(); i++) {
-                                JSONObject doc = documents.getJSONObject(i);
+                        for (int i = 0; i < documents.length(); i++) {
+                            JSONObject doc = documents.getJSONObject(i);
+                            
+                            if (doc.has("fields")) {
+                                JSONObject fields = doc.getJSONObject("fields");
                                 
-                                if (doc.has("fields")) {
-                                    JSONObject fields = doc.getJSONObject("fields");
+                                if (fields.has("dni_usuario")) {
+                                    String dniUsuario = fields.getJSONObject("dni_usuario").getString("stringValue");
                                     
-                                    if (fields.has("dni_usuario")) {
-                                        String dniUsuario = fields.getJSONObject("dni_usuario").getString("stringValue");
+                                    if (dniUsuario.equals(dni)) {
+                                        RegistroFichaje fichaje = new RegistroFichaje();
+                                        fichaje.setDni(dni);
+                                        fichaje.setFechaHora(fields.getJSONObject("fecha_hora").getString("stringValue"));
+                                        fichaje.setTipo(fields.getJSONObject("tipo").getString("stringValue"));
                                         
-                                        if (dniUsuario.equals(dni)) {
-                                            RegistroFichaje fichaje = new RegistroFichaje();
-                                            fichaje.setDni(dni);
-                                            fichaje.setFechaHora(fields.getJSONObject("fecha_hora").getString("stringValue"));
-                                            fichaje.setTipo(fields.getJSONObject("tipo").getString("stringValue"));
-                                            
-                                            fichajes.add(fichaje);
+                                        // Obtener el estado si existe
+                                        if (fields.has("estado")) {
+                                            fichaje.setEstado(fields.getJSONObject("estado").getString("stringValue"));
                                         }
+                                        
+                                        // Obtener el horario histórico si existe
+                                        if (fields.has("horario_historico")) {
+                                            fichaje.setHorarioHistorico(fields.getJSONObject("horario_historico").getString("stringValue"));
+                                        }
+                                        
+                                        fichajes.add(fichaje);
                                     }
                                 }
                             }

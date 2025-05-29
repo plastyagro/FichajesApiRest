@@ -1,15 +1,21 @@
 package com.example.fichajesapirest;
 
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
+import javafx.geometry.Insets;
 import javafx.scene.control.*;
+import javafx.scene.control.TextField;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;                                                        
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
+
+import java.io.*;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -22,22 +28,26 @@ import java.util.stream.Collectors;
 import java.time.LocalDate;
 import java.net.URL;
 import java.util.ResourceBundle;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+
 import javafx.scene.control.DatePicker;
 import javafx.animation.FadeTransition;
-import javafx.animation.ScaleTransition;
 import javafx.animation.TranslateTransition;
 import javafx.util.Duration;
 import javafx.scene.Node;
 import javafx.stage.WindowEvent;
 import javafx.scene.Scene;
-import javafx.scene.input.MouseButton;
 import javafx.scene.layout.Region;
 import java.time.temporal.ChronoUnit;
 import javafx.beans.property.SimpleStringProperty;
+import java.util.Map;
+import java.util.HashMap;
+import com.itextpdf.text.*;
+import com.itextpdf.text.pdf.*;
+import javafx.application.Platform;
+import java.awt.Desktop;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class DetallesTrabajadorController implements Initializable {
     @FXML
@@ -147,16 +157,25 @@ public class DetallesTrabajadorController implements Initializable {
     @FXML
     private TableView<Festivo> festivosTableView;
     @FXML
-    private TableColumn<Festivo, String> fechaFestivoCol;
+    private TableColumn<Festivo, LocalDate> fechaFestivoCol;
     @FXML
     private TableColumn<Festivo, String> nombreFestivoCol;
     @FXML
     private TableColumn<Festivo, String> tipoFestivoCol;
+    @FXML
+    private Button verHistorialButton;
+    @FXML
+    private TextArea vacacionesTextArea;
 
     private Trabajador trabajador;
     private List<RegistroFichaje> fichajesTrabajador;
     private Set<LocalDate> diasTrabajados = new HashSet<>();
     private List<RegistroFichaje> fichajesOriginales;
+    private List<RegistroHistorial> historialPDFs = new ArrayList<>();
+    private static final String HISTORIAL_FILE_PATTERN = "historial_pdfs_%s.json";
+    private static final String ESTADO_CARGA_FILE_PATTERN = "estado_carga_%s.json";
+    private LocalDateTime fechaCambioHorario = null;
+    private FirebaseRESTExample firebase = new FirebaseRESTExample();
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -165,19 +184,33 @@ public class DetallesTrabajadorController implements Initializable {
         Image rojo = new Image(getClass().getResource("/rojo.png").toExternalForm());
         Image advertencia = new Image(getClass().getResource("/advertencia_icono.png").toExternalForm());
 
-        // Configurar las columnas de las tablas de entradas
-        configurarColumnasTabla(fechaEntradaMananaCol, tipoEntradaMananaCol, estadoEntradaMananaCol, iconosEntradaMananaColumn);
-        configurarColumnasTabla(fechaEntradaTardeCol, tipoEntradaTardeCol, estadoEntradaTardeCol, iconosEntradaTardeColumn);
+        // Configurar las columnas de estado
+        estadoEntradaMananaCol.setCellValueFactory(new PropertyValueFactory<>("estado"));
+        estadoEntradaTardeCol.setCellValueFactory(new PropertyValueFactory<>("estado"));
+        estadoSalidaMananaCol.setCellValueFactory(new PropertyValueFactory<>("estado"));
+        estadoSalidaTardeCol.setCellValueFactory(new PropertyValueFactory<>("estado"));
 
-        // Configurar las columnas de las tablas de salidas
-        configurarColumnasTabla(fechaSalidaMananaCol, tipoSalidaMananaCol, estadoSalidaMananaCol, iconosSalidaMananaColumn);
-        configurarColumnasTabla(fechaSalidaTardeCol, tipoSalidaTardeCol, estadoSalidaTardeCol, iconosSalidaTardeColumn);
+        // Configurar las columnas de iconos
+        iconosEntradaMananaColumn.setCellValueFactory(new PropertyValueFactory<>("estado"));
+        iconosEntradaTardeColumn.setCellValueFactory(new PropertyValueFactory<>("estado"));
+        iconosSalidaMananaColumn.setCellValueFactory(new PropertyValueFactory<>("estado"));
+        iconosSalidaTardeColumn.setCellValueFactory(new PropertyValueFactory<>("estado"));
 
-        // Configurar las columnas de iconos para todas las tablas
-        configurarColumnasIconos(iconosEntradaMananaColumn, verde, rojo, advertencia);
-        configurarColumnasIconos(iconosEntradaTardeColumn, verde, rojo, advertencia);
-        configurarColumnasIconos(iconosSalidaMananaColumn, verde, rojo, advertencia);
-        configurarColumnasIconos(iconosSalidaTardeColumn, verde, rojo, advertencia);
+        // Configurar las columnas de fecha y tipo
+        fechaEntradaMananaCol.setCellValueFactory(new PropertyValueFactory<>("fechaHora"));
+        tipoEntradaMananaCol.setCellValueFactory(new PropertyValueFactory<>("tipo"));
+        fechaEntradaTardeCol.setCellValueFactory(new PropertyValueFactory<>("fechaHora"));
+        tipoEntradaTardeCol.setCellValueFactory(new PropertyValueFactory<>("tipo"));
+        fechaSalidaMananaCol.setCellValueFactory(new PropertyValueFactory<>("fechaHora"));
+        tipoSalidaMananaCol.setCellValueFactory(new PropertyValueFactory<>("tipo"));
+        fechaSalidaTardeCol.setCellValueFactory(new PropertyValueFactory<>("fechaHora"));
+        tipoSalidaTardeCol.setCellValueFactory(new PropertyValueFactory<>("tipo"));
+
+        // Configurar los cellFactory para los iconos
+        iconosEntradaMananaColumn.setCellFactory(col -> crearCellFactoryIconos());
+        iconosEntradaTardeColumn.setCellFactory(col -> crearCellFactoryIconos());
+        iconosSalidaMananaColumn.setCellFactory(col -> crearCellFactoryIconos());
+        iconosSalidaTardeColumn.setCellFactory(col -> crearCellFactoryIconos());
 
         // Configurar el calendario
         configurarCalendario();
@@ -237,15 +270,33 @@ public class DetallesTrabajadorController implements Initializable {
         });
 
         // Configurar las columnas de la tabla de festivos
-        fechaFestivoCol.setCellValueFactory(cellData -> {
-            Festivo festivo = cellData.getValue();
-            return new SimpleStringProperty(festivo.getFecha().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
-        });
+        fechaFestivoCol.setCellValueFactory(cellData -> new SimpleObjectProperty<>(cellData.getValue().getFecha()));
         nombreFestivoCol.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getNombre()));
         tipoFestivoCol.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getTipo()));
 
+        // Configurar el formateador de fecha para la columna de fecha
+        fechaFestivoCol.setCellFactory(col -> new TableCell<Festivo, LocalDate>() {
+            @Override
+            protected void updateItem(LocalDate fecha, boolean empty) {
+                super.updateItem(fecha, empty);
+                if (empty || fecha == null) {
+                    setText(null);
+                } else {
+                    setText(fecha.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+                }
+            }
+        });
+
         // Cargar los festivos del año actual
         cargarFestivos();
+
+        // Cargar el historial de PDFs al iniciar
+        cargarHistorialPDFs();
+
+        // Configurar el TextArea de vacaciones
+        vacacionesTextArea.setEditable(false);
+        vacacionesTextArea.setWrapText(true);
+        vacacionesTextArea.setStyle("-fx-background-color: white; -fx-font-size: 12px;");
     }
 
     private void animateElement(Node node, int delay) {
@@ -344,94 +395,130 @@ public class DetallesTrabajadorController implements Initializable {
         actualizarResumenMensual(hoy);
     }
 
-    public void setTrabajador(Trabajador trabajador, List<RegistroFichaje> fichajes) {
+    public void setTrabajador(Trabajador trabajador, List<RegistroFichaje> registroFichajes) {
         this.trabajador = trabajador;
-        this.fichajesTrabajador = fichajes;
-        this.fichajesOriginales = new ArrayList<>(fichajes);
+        
+        // Verificar si el trabajador tiene vacaciones establecidas y si alguna es futura o en curso
+        if (trabajador.getPeriodosVacaciones() != null && !trabajador.getPeriodosVacaciones().isEmpty()) {
+            LocalDate hoy = LocalDate.now();
+            List<PeriodoVacaciones> vacacionesActivas = trabajador.getPeriodosVacaciones().stream()
+                .filter(periodo -> {
+                    try {
+                        LocalDate fechaHasta = LocalDate.parse(periodo.getFechaHasta());
+                        return !fechaHasta.isBefore(hoy); // Incluye vacaciones en curso y futuras
+                    } catch (Exception e) {
+                        return false;
+                    }
+                })
+                .collect(Collectors.toList());
 
-        // Actualizar la información del trabajador
+            if (!vacacionesActivas.isEmpty()) {
+                // Crear el diálogo de información
+                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                alert.setTitle("Información de Vacaciones");
+                alert.setHeaderText("El trabajador tiene períodos de vacaciones activos");
+                
+                // Crear el contenido del diálogo
+                StringBuilder content = new StringBuilder();
+                content.append("Períodos de vacaciones activos:\n\n");
+                
+                for (PeriodoVacaciones periodo : vacacionesActivas) {
+                    try {
+                        LocalDate fechaDesde = LocalDate.parse(periodo.getFechaDesde());
+                        LocalDate fechaHasta = LocalDate.parse(periodo.getFechaHasta());
+                        
+                        // Determinar si las vacaciones están en curso o son futuras
+                        String estado = fechaDesde.isAfter(hoy) ? "Futuras" : "En curso";
+                        
+                        content.append(estado).append(":\n")
+                               .append("Desde: ").append(fechaDesde.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")))
+                               .append("\nHasta: ").append(fechaHasta.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")))
+                               .append("\n\n");
+                    } catch (Exception e) {
+                        content.append("Desde: ").append(periodo.getFechaDesde())
+                               .append("\nHasta: ").append(periodo.getFechaHasta())
+                               .append("\n\n");
+                    }
+                }
+                
+                alert.setContentText(content.toString());
+                
+                // Mostrar el diálogo y esperar a que el usuario pulse Aceptar
+                alert.showAndWait();
+            }
+        }
+        
+        // Cargar el estado de carga para obtener la fecha de cambio de horario
+        cargarEstadoCarga();
+        
+        // Obtener todos los fichajes del trabajador
+        List<RegistroFichaje> todosLosFichajes = firebase.obtenerFichajesTrabajador(trabajador.getDni());
+        
+        // Filtrar los fichajes según la fecha de cambio de horario
+        if (fechaCambioHorario != null) {
+            this.fichajesTrabajador = todosLosFichajes.stream()
+                .filter(fichaje -> {
+                    try {
+                        LocalDateTime fechaFichaje = LocalDateTime.parse(fichaje.getFechaHora(), 
+                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                        return !fechaFichaje.isBefore(fechaCambioHorario);
+                    } catch (Exception e) {
+                        return false;
+                    }
+                })
+                .collect(Collectors.toList());
+        } else {
+            this.fichajesTrabajador = new ArrayList<>(todosLosFichajes);
+        }
+        
+        this.fichajesOriginales = new ArrayList<>(fichajesTrabajador);
+        this.diasTrabajados = new HashSet<>();
+
+        // Actualizar la interfaz con los datos del trabajador
         nombreLabel.setText(trabajador.getNombre());
         apellidosLabel.setText(trabajador.getApellidos());
         dniLabel.setText(trabajador.getDni());
 
-        // Actualizar el horario
-        String horario = String.format("Mañana: %s - %s\nTarde: %s - %s",
-                formatearHora(trabajador.getHoraEntradaManana()),
-                formatearHora(trabajador.getHoraSalidaManana()),
-                formatearHora(trabajador.getHoraEntradaTarde()),
-                formatearHora(trabajador.getHoraSalidaTarde()));
-        horarioLabel.setText(horario);
-
-        // Actualizar las fechas de vacaciones
-        if (trabajador.getVacacionesDesde() != null && !trabajador.getVacacionesDesde().isEmpty()) {
-            try {
-                LocalDate fechaDesde = LocalDate.parse(trabajador.getVacacionesDesde());
-                vacacionesDesdePicker.setValue(fechaDesde);
-                
-                // Verificar si el trabajador está actualmente de vacaciones
-                LocalDate hoy = LocalDate.now();
-                
-                if (trabajador.getVacacionesHasta() != null && !trabajador.getVacacionesHasta().isEmpty()) {
-                    LocalDate fechaHasta = LocalDate.parse(trabajador.getVacacionesHasta());
-                    vacacionesHastaPicker.setValue(fechaHasta);
-                    
-                    Alert alert = new Alert(Alert.AlertType.INFORMATION);
-                    alert.setTitle("Información de Vacaciones");
-                    alert.setHeaderText(null);
-                    
-                    if (!hoy.isBefore(fechaDesde) && !hoy.isAfter(fechaHasta)) {
-                        // El trabajador está actualmente de vacaciones
-                        long diasRestantes = ChronoUnit.DAYS.between(hoy, fechaHasta);
-                        alert.setContentText(String.format(
-                            "El trabajador %s %s está actualmente de vacaciones.\n" +
-                            "Días restantes: %d días",
-                            trabajador.getNombre(),
-                            trabajador.getApellidos(),
-                            diasRestantes
-                        ));
-                    } else if (hoy.isBefore(fechaDesde)) {
-                        // Las vacaciones son futuras
-                        long diasHastaVacaciones = ChronoUnit.DAYS.between(hoy, fechaDesde);
-                        long duracionVacaciones = ChronoUnit.DAYS.between(fechaDesde, fechaHasta) + 1;
-                        alert.setContentText(String.format(
-                            "El trabajador %s %s tiene vacaciones programadas.\n" +
-                            "Faltan %d días para el inicio de las vacaciones.\n" +
-                            "Duración: %d días",
-                            trabajador.getNombre(),
-                            trabajador.getApellidos(),
-                            diasHastaVacaciones,
-                            duracionVacaciones
-                        ));
-                    } else {
-                        // Las vacaciones ya pasaron
-                        alert.setContentText(String.format(
-                            "El trabajador %s %s ya ha disfrutado de sus vacaciones.\n" +
-                            "Período: del %s al %s",
-                            trabajador.getNombre(),
-                            trabajador.getApellidos(),
-                            fechaDesde.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
-                            fechaHasta.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
-                        ));
-                    }
-                    alert.showAndWait();
-                }
-            } catch (Exception e) {
-                System.err.println("Error al procesar fechas de vacaciones: " + e.getMessage());
-                e.printStackTrace();
-            }
+        // Configurar el horario
+        StringBuilder horario = new StringBuilder();
+        if (trabajador.getHoraEntradaManana() != null && trabajador.getHoraSalidaManana() != null) {
+            horario.append("Mañana: ").append(formatearHora(trabajador.getHoraEntradaManana()))
+                  .append(" - ").append(formatearHora(trabajador.getHoraSalidaManana())).append("\n");
         }
+        if (trabajador.getHoraEntradaTarde() != null && trabajador.getHoraSalidaTarde() != null) {
+            horario.append("Tarde: ").append(formatearHora(trabajador.getHoraEntradaTarde()))
+                  .append(" - ").append(formatearHora(trabajador.getHoraSalidaTarde()));
+        }
+        horarioLabel.setText(horario.toString());
 
-        // Calcular estadísticas
-        calcularEstadisticas();
-
-        // Actualizar los campos de horario
+        // Configurar los campos de horario
         horaEntradaMananaField.setText(formatearHora(trabajador.getHoraEntradaManana()));
         horaSalidaMananaField.setText(formatearHora(trabajador.getHoraSalidaManana()));
         horaEntradaTardeField.setText(formatearHora(trabajador.getHoraEntradaTarde()));
         horaSalidaTardeField.setText(formatearHora(trabajador.getHoraSalidaTarde()));
 
-        // Actualizar las tablas
-        actualizarTablasConFichajes(fichajesTrabajador);
+        // Cargar los períodos de vacaciones en el TextArea
+        if (trabajador.getPeriodosVacaciones() != null) {
+            StringBuilder sb = new StringBuilder();
+            for (PeriodoVacaciones periodo : trabajador.getPeriodosVacaciones()) {
+                sb.append("Desde: ").append(periodo.getFechaDesde())
+                  .append(" - Hasta: ").append(periodo.getFechaHasta())
+                  .append("\n");
+            }
+            vacacionesTextArea.setText(sb.toString());
+        }
+
+        // Cargar los fichajes en las tablas
+        cargarFichajesEnTablas();
+
+        // Actualizar el calendario
+        actualizarCalendario();
+
+        // Calcular y mostrar estadísticas
+        calcularEstadisticas();
+
+        // Cargar el historial de PDFs
+        cargarHistorialPDFs();
     }
 
     private String formatearHora(String hora) {
@@ -628,171 +715,70 @@ public class DetallesTrabajadorController implements Initializable {
         actualizarTablasConFichajes(fichajesTrabajador);
     }
 
-    private void actualizarTablasConFichajes(List<RegistroFichaje> fichajes) {
-        List<RegistroFichaje> entradasManana = new ArrayList<>();
-        List<RegistroFichaje> entradasTarde = new ArrayList<>();
-        List<RegistroFichaje> salidasManana = new ArrayList<>();
-        List<RegistroFichaje> salidasTarde = new ArrayList<>();
-
-        int contadorRetrasos = 0;
-        int contadorAusencias = 0;
-
-        for (RegistroFichaje registro : fichajes) {
-            try {
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-                LocalDateTime fechaRegistro = LocalDateTime.parse(registro.getFechaHora(), formatter);
-                LocalTime horaRegistro = fechaRegistro.toLocalTime();
-
-                // Obtener los horarios del trabajador
-                LocalTime horaEntradaManana = LocalTime.parse(formatearHora(trabajador.getHoraEntradaManana()));
-                LocalTime horaSalidaManana = LocalTime.parse(formatearHora(trabajador.getHoraSalidaManana()));
-                LocalTime horaEntradaTarde = LocalTime.parse(formatearHora(trabajador.getHoraEntradaTarde()));
-                LocalTime horaSalidaTarde = LocalTime.parse(formatearHora(trabajador.getHoraSalidaTarde()));
-
-                // Determinar si es mañana o tarde
-                boolean esManana = horaRegistro.isBefore(LocalTime.of(14, 0));
-
-                if (registro.getTipo().equals("entrada")) {
-                    if (esManana) {
-                        // Entrada de mañana
-                        if (horaRegistro.isBefore(horaEntradaManana)) {
-                            registro.setEstado("Anticipada");
-                        } else if (horaRegistro.equals(horaEntradaManana)) {
-                            registro.setEstado("Puntual");
-                        } else {
-                            registro.setEstado("Retrasada");
-                            contadorRetrasos++;
-                        }
-                        entradasManana.add(registro);
-                    } else {
-                        // Entrada de tarde
-                        if (horaRegistro.isBefore(horaEntradaTarde)) {
-                            registro.setEstado("Anticipada");
-                        } else if (horaRegistro.equals(horaEntradaTarde)) {
-                            registro.setEstado("Puntual");
-                        } else {
-                            registro.setEstado("Retrasada");
-                            contadorRetrasos++;
-                        }
-                        entradasTarde.add(registro);
-                    }
-                } else if (registro.getTipo().equals("salida")) {
-                    if (esManana) {
-                        // Salida de mañana
-                        if (horaRegistro.isBefore(horaSalidaManana)) {
-                            registro.setEstado("Anticipada");
-                        } else if (horaRegistro.equals(horaSalidaManana)) {
-                            registro.setEstado("Puntual");
-                        } else {
-                            registro.setEstado("Tardía");
-                            contadorRetrasos++;
-                        }
-                        salidasManana.add(registro);
-                    } else {
-                        // Salida de tarde
-                        if (horaRegistro.isBefore(horaSalidaTarde)) {
-                            registro.setEstado("Anticipada");
-                        } else if (horaRegistro.equals(horaSalidaTarde)) {
-                            registro.setEstado("Puntual");
-                        } else {
-                            registro.setEstado("Tardía");
-                            contadorRetrasos++;
-                        }
-                        salidasTarde.add(registro);
-                    }
-                }
-            } catch (Exception e) {
-                System.err.println("Error al procesar el registro: " + registro.getFechaHora());
-                e.printStackTrace();
-            }
-        }
-
-        // Ordenar los registros por fecha
-        entradasManana.sort((r1, r2) -> r2.getFechaHora().compareTo(r1.getFechaHora()));
-        entradasTarde.sort((r1, r2) -> r2.getFechaHora().compareTo(r1.getFechaHora()));
-        salidasManana.sort((r1, r2) -> r2.getFechaHora().compareTo(r1.getFechaHora()));
-        salidasTarde.sort((r1, r2) -> r2.getFechaHora().compareTo(r1.getFechaHora()));
-
-        // Cargar los datos en las tablas
-        entradasMananaTableView.getItems().setAll(entradasManana);
-        entradasTardeTableView.getItems().setAll(entradasTarde);
-        salidasMananaTableView.getItems().setAll(salidasManana);
-        salidasTardeTableView.getItems().setAll(salidasTarde);
-
-        // Actualizar los indicadores
-        indicadorRetrasos.setText(contadorRetrasos + "");
-        indicadorAusencias.setText(contadorAusencias + "");
-
-        // Actualizar el calendario
-        actualizarCalendario();
-    }
-
     @FXML
     private void guardarHorario() {
         try {
-            System.out.println("Iniciando actualización de horario...");
-
-            // Validar los horarios
+            // Validar los horarios (permitiendo campos vacíos)
             if (!validarFormatoHora(horaEntradaMananaField.getText()) ||
                     !validarFormatoHora(horaSalidaMananaField.getText()) ||
                     !validarFormatoHora(horaEntradaTardeField.getText()) ||
                     !validarFormatoHora(horaSalidaTardeField.getText())) {
-                mostrarAlerta("Error", "Los horarios deben estar en formato HH:mm");
+                mostrarAlerta("Error", "Los horarios deben estar en formato HH:mm o vacíos");
                 return;
             }
 
-            // Guardar la selección actual del período
-            String periodoSeleccionado = periodoFiltro.getValue();
+            // Guardar los fichajes actuales antes de limpiar
+            List<RegistroFichaje> fichajesActuales = new ArrayList<>(fichajesTrabajador);
 
-            System.out.println("Horarios antes de actualizar:");
-            System.out.println("Entrada Mañana: " + trabajador.getHoraEntradaManana());
-            System.out.println("Salida Mañana: " + trabajador.getHoraSalidaManana());
-            System.out.println("Entrada Tarde: " + trabajador.getHoraEntradaTarde());
-            System.out.println("Salida Tarde: " + trabajador.getHoraSalidaTarde());
-
-            // Actualizar el objeto trabajador
+            // Actualizar solo los horarios en el objeto trabajador
             trabajador.setHoraEntradaManana(horaEntradaMananaField.getText());
             trabajador.setHoraSalidaManana(horaSalidaMananaField.getText());
             trabajador.setHoraEntradaTarde(horaEntradaTardeField.getText());
             trabajador.setHoraSalidaTarde(horaSalidaTardeField.getText());
 
-            System.out.println("Horarios después de actualizar:");
-            System.out.println("Entrada Mañana: " + trabajador.getHoraEntradaManana());
-            System.out.println("Salida Mañana: " + trabajador.getHoraSalidaManana());
-            System.out.println("Entrada Tarde: " + trabajador.getHoraEntradaTarde());
-            System.out.println("Salida Tarde: " + trabajador.getHoraSalidaTarde());
-
             // Actualizar en Firebase
-            System.out.println("Actualizando en Firebase...");
             FirebaseRESTExample.actualizarHorarioTrabajador(trabajador);
-            System.out.println("Actualización en Firebase completada");
 
             // Actualizar el horario en la información personal
-            String horario = String.format("Mañana: %s - %s\nTarde: %s - %s",
-                    formatearHora(trabajador.getHoraEntradaManana()),
-                    formatearHora(trabajador.getHoraSalidaManana()),
-                    formatearHora(trabajador.getHoraEntradaTarde()),
-                    formatearHora(trabajador.getHoraSalidaTarde()));
-            horarioLabel.setText(horario);
-
-            System.out.println("Actualizando tablas...");
-            // Actualizar las tablas con los nuevos estados
-            actualizarTablasConFichajes(fichajesOriginales);
-
-            // Restaurar la selección del período
-            if (periodoSeleccionado != null) {
-                periodoFiltro.setValue(periodoSeleccionado);
-                filtrarPorFecha();
+            StringBuilder horario = new StringBuilder();
+            if (!horaEntradaMananaField.getText().isEmpty() && !horaSalidaMananaField.getText().isEmpty()) {
+                horario.append("Mañana: ").append(formatearHora(trabajador.getHoraEntradaManana()))
+                      .append(" - ").append(formatearHora(trabajador.getHoraSalidaManana())).append("\n");
             }
+            if (!horaEntradaTardeField.getText().isEmpty() && !horaSalidaTardeField.getText().isEmpty()) {
+                horario.append("Tarde: ").append(formatearHora(trabajador.getHoraEntradaTarde()))
+                      .append(" - ").append(formatearHora(trabajador.getHoraSalidaTarde()));
+            }
+            horarioLabel.setText(horario.toString());
 
-            // Forzar la actualización de las celdas de iconos
-            entradasMananaTableView.refresh();
-            entradasTardeTableView.refresh();
-            salidasMananaTableView.refresh();
-            salidasTardeTableView.refresh();
-            System.out.println("Actualización de tablas completada");
+            // Generar PDF con los fichajes actuales
+            generarYMostrarPDF();
 
-            mostrarAlerta("Éxito", "Horario actualizado correctamente");
+            // Limpiar las tablas y los datos
+            entradasMananaTableView.getItems().clear();
+            entradasTardeTableView.getItems().clear();
+            salidasMananaTableView.getItems().clear();
+            salidasTardeTableView.getItems().clear();
+
+            // Limpiar los indicadores
+            indicadorRetrasos.setText("0");
+            indicadorAusencias.setText("0");
+
+            // Limpiar el calendario
+            calendarioTrabajo.setValue(null);
+            diasTrabajadosLabel.setText("0 días");
+            diasTrabajadosCalendarioLabel.setText("0 días");
+            resumenMensualLabel.setText("");
+
+            // Limpiar la lista de fichajes
+            fichajesTrabajador.clear();
+            diasTrabajados.clear();
+
+            // Guardar la fecha del cambio de horario
+            fechaCambioHorario = LocalDateTime.now();
+            guardarEstadoCarga();
+
+            mostrarAlerta("Éxito", "Horario actualizado correctamente. Las tablas se han limpiado para registrar los nuevos fichajes con el nuevo horario.");
         } catch (Exception e) {
             System.err.println("Error al actualizar el horario: " + e.getMessage());
             e.printStackTrace();
@@ -801,7 +787,7 @@ public class DetallesTrabajadorController implements Initializable {
     }
 
     private boolean validarFormatoHora(String hora) {
-        if (hora == null || hora.isEmpty()) return false;
+        if (hora == null || hora.isEmpty()) return true; // Permitir campos vacíos
         try {
             String[] partes = hora.split(":");
             if (partes.length != 2) return false;
@@ -930,6 +916,13 @@ public class DetallesTrabajadorController implements Initializable {
                             RegistroFichaje registro = getTableRow().getItem();
                             String estado = registro.getEstado();
                             String tipo = registro.getTipo();
+                            
+                            // Si el estado es null, no mostramos ningún icono
+                            if (estado == null) {
+                                setGraphic(null);
+                                return;
+                            }
+
                             System.out.println("Procesando iconos para registro: " + registro.getFechaHora());
                             System.out.println("Estado: " + estado);
                             System.out.println("Tipo: " + tipo);
@@ -943,7 +936,6 @@ public class DetallesTrabajadorController implements Initializable {
                                     break;
                                 case "Anticipada":
                                     if (tipo.equals("entrada")) {
-                                        // Para entradas anticipadas, mostrar dos puntos verdes
                                         ImageView iconoVerde1 = new ImageView(verde);
                                         iconoVerde1.setFitHeight(16);
                                         iconoVerde1.setFitWidth(16);
@@ -952,7 +944,6 @@ public class DetallesTrabajadorController implements Initializable {
                                         iconoVerde2.setFitWidth(16);
                                         iconos.getChildren().addAll(iconoVerde1, iconoVerde2);
                                     } else {
-                                        // Para salidas anticipadas, mostrar un punto rojo
                                         ImageView iconoRojo = new ImageView(rojo);
                                         iconoRojo.setFitHeight(16);
                                         iconoRojo.setFitWidth(16);
@@ -961,7 +952,6 @@ public class DetallesTrabajadorController implements Initializable {
                                     break;
                                 case "Retrasada":
                                 case "Tardía":
-                                    // Añadir iconos de colores
                                     ImageView iconoVerde3 = new ImageView(verde);
                                     iconoVerde3.setFitHeight(16);
                                     iconoVerde3.setFitWidth(16);
@@ -969,54 +959,56 @@ public class DetallesTrabajadorController implements Initializable {
                                     iconoRojo2.setFitHeight(16);
                                     iconoRojo2.setFitWidth(16);
                                     
-                                    // Añadir un espacio
                                     Region espacio = new Region();
                                     espacio.setPrefWidth(10);
                                     
-                                    // Añadir icono de advertencia con evento de clic
                                     ImageView iconoAdvertencia = new ImageView(advertencia);
                                     iconoAdvertencia.setFitHeight(16);
                                     iconoAdvertencia.setFitWidth(16);
-                                    iconoAdvertencia.setStyle("-fx-cursor: hand;"); // Cambiar el cursor al pasar por encima
+                                    iconoAdvertencia.setStyle("-fx-cursor: hand;");
                                     
-                                    // Calcular el tiempo de retraso
-                                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-                                    LocalDateTime fechaRegistro = LocalDateTime.parse(registro.getFechaHora(), formatter);
-                                    LocalTime horaRegistro = fechaRegistro.toLocalTime();
-                                    
-                                    LocalTime horaEsperada;
-                                    if (tipo.equals("entrada")) {
-                                        horaEsperada = fechaRegistro.toLocalTime().isBefore(LocalTime.of(14, 0)) ?
-                                            LocalTime.parse(formatearHora(trabajador.getHoraEntradaManana())) :
-                                            LocalTime.parse(formatearHora(trabajador.getHoraEntradaTarde()));
-                                    } else {
-                                        horaEsperada = fechaRegistro.toLocalTime().isBefore(LocalTime.of(14, 0)) ?
-                                            LocalTime.parse(formatearHora(trabajador.getHoraSalidaManana())) :
-                                            LocalTime.parse(formatearHora(trabajador.getHoraSalidaTarde()));
+                                    if (trabajador != null) {
+                                        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                                        LocalDateTime fechaRegistro = LocalDateTime.parse(registro.getFechaHora(), formatter);
+                                        LocalTime horaRegistro = fechaRegistro.toLocalTime();
+                                        
+                                        LocalTime horaEsperada;
+                                        if (tipo.equals("entrada")) {
+                                            horaEsperada = fechaRegistro.toLocalTime().isBefore(LocalTime.of(14, 0)) ?
+                                                LocalTime.parse(formatearHora(trabajador.getHoraEntradaManana())) :
+                                                LocalTime.parse(formatearHora(trabajador.getHoraEntradaTarde()));
+                                        } else {
+                                            horaEsperada = fechaRegistro.toLocalTime().isBefore(LocalTime.of(14, 0)) ?
+                                                LocalTime.parse(formatearHora(trabajador.getHoraSalidaManana())) :
+                                                LocalTime.parse(formatearHora(trabajador.getHoraSalidaTarde()));
+                                        }
+                                        
+                                        long minutosRetraso = ChronoUnit.MINUTES.between(horaEsperada, horaRegistro);
+                                        
+                                        iconoAdvertencia.setOnMouseClicked(event -> {
+                                            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                                            alert.setTitle("Detalles del Retraso");
+                                            alert.setHeaderText(null);
+                                            alert.setContentText(String.format(
+                                                "Tipo: %s\n" +
+                                                "Hora esperada: %s\n" +
+                                                "Hora real: %s\n" +
+                                                "Tiempo de retraso: %d minutos",
+                                                tipo.equals("entrada") ? "Entrada" : "Salida",
+                                                horaEsperada.format(DateTimeFormatter.ofPattern("HH:mm")),
+                                                horaRegistro.format(DateTimeFormatter.ofPattern("HH:mm")),
+                                                minutosRetraso
+                                            ));
+                                            alert.showAndWait();
+                                        });
                                     }
-                                    
-                                    long minutosRetraso = ChronoUnit.MINUTES.between(horaEsperada, horaRegistro);
-                                    
-                                    // Añadir evento de clic
-                                    iconoAdvertencia.setOnMouseClicked(event -> {
-                                        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-                                        alert.setTitle("Detalles del Retraso");
-                                        alert.setHeaderText(null);
-                                        alert.setContentText(String.format(
-                                            "Tipo: %s\n" +
-                                            "Hora esperada: %s\n" +
-                                            "Hora real: %s\n" +
-                                            "Tiempo de retraso: %d minutos",
-                                            tipo.equals("entrada") ? "Entrada" : "Salida",
-                                            horaEsperada.format(DateTimeFormatter.ofPattern("HH:mm")),
-                                            horaRegistro.format(DateTimeFormatter.ofPattern("HH:mm")),
-                                            minutosRetraso
-                                        ));
-                                        alert.showAndWait();
-                                    });
                                     
                                     iconos.getChildren().addAll(iconoVerde3, iconoRojo2, espacio, iconoAdvertencia);
                                     break;
+                                default:
+                                    // Si el estado no coincide con ninguno de los casos anteriores, no mostramos iconos
+                                    setGraphic(null);
+                                    return;
                             }
                         }
 
@@ -1024,6 +1016,7 @@ public class DetallesTrabajadorController implements Initializable {
                     } catch (Exception e) {
                         System.err.println("Error al procesar los iconos: " + e.getMessage());
                         e.printStackTrace();
+                        setGraphic(null);
                     }
                 }
             }
@@ -1079,66 +1072,75 @@ public class DetallesTrabajadorController implements Initializable {
         horaSalidaMananaField.clear();
         horaEntradaTardeField.clear();
         horaSalidaTardeField.clear();
-    }
 
-    @FXML
-    private void guardarVacaciones() {
-        try {
-            LocalDate fechaDesde = vacacionesDesdePicker.getValue();
-            LocalDate fechaHasta = vacacionesHastaPicker.getValue();
-
-            if (fechaDesde == null || fechaHasta == null) {
-                mostrarAlerta("Error", "Por favor, seleccione ambas fechas de vacaciones");
-                return;
-            }
-
-            if (fechaDesde.isAfter(fechaHasta)) {
-                mostrarAlerta("Error", "La fecha de inicio no puede ser posterior a la fecha de fin");
-                return;
-            }
-
-            // Actualizar el objeto trabajador
-            trabajador.setVacacionesDesde(fechaDesde.toString());
-            trabajador.setVacacionesHasta(fechaHasta.toString());
-
-            // Guardar en Firebase
-            FirebaseRESTExample.actualizarHorarioTrabajador(trabajador);
-
-            mostrarAlerta("Éxito", "Las vacaciones se han guardado correctamente");
-        } catch (Exception e) {
-            System.err.println("Error al guardar las vacaciones: " + e.getMessage());
-            e.printStackTrace();
-            mostrarAlerta("Error", "No se pudieron guardar las vacaciones: " + e.getMessage());
+        // Guardar el estado de carga antes de cerrar
+        if (trabajador != null) {
+            guardarEstadoCarga();
         }
     }
 
     @FXML
+    private void guardarVacaciones() {
+        if (trabajador == null) return;
+
+        LocalDate fechaDesde = vacacionesDesdePicker.getValue();
+        LocalDate fechaHasta = vacacionesHastaPicker.getValue();
+
+        if (fechaDesde == null || fechaHasta == null) {
+            mostrarAlerta("Error", "Por favor, seleccione ambas fechas.");
+            return;
+        }
+
+        if (fechaDesde.isAfter(fechaHasta)) {
+            mostrarAlerta("Error", "La fecha de inicio debe ser anterior a la fecha de fin.");
+            return;
+        }
+
+        // Crear nuevo período de vacaciones
+        PeriodoVacaciones nuevoPeriodo = new PeriodoVacaciones(
+            fechaDesde.format(DateTimeFormatter.ISO_LOCAL_DATE),
+            fechaHasta.format(DateTimeFormatter.ISO_LOCAL_DATE)
+        );
+
+        // Añadir el período a la lista del trabajador
+        if (trabajador.getPeriodosVacaciones() == null) {
+            trabajador.setPeriodosVacaciones(new ArrayList<>());
+        }
+        trabajador.getPeriodosVacaciones().add(nuevoPeriodo);
+
+        // Actualizar el TextArea
+        StringBuilder sb = new StringBuilder();
+        for (PeriodoVacaciones periodo : trabajador.getPeriodosVacaciones()) {
+            sb.append("Desde: ").append(periodo.getFechaDesde())
+              .append(" - Hasta: ").append(periodo.getFechaHasta())
+              .append("\n");
+        }
+        vacacionesTextArea.setText(sb.toString());
+
+        // Limpiar los DatePickers
+        vacacionesDesdePicker.setValue(null);
+        vacacionesHastaPicker.setValue(null);
+
+        // Guardar los cambios
+        guardarCambios();
+    }
+
+    @FXML
     private void eliminarVacaciones() {
-        try {
-            // Confirmar la eliminación
-            Alert confirmacion = new Alert(Alert.AlertType.CONFIRMATION);
-            confirmacion.setTitle("Confirmar Eliminación");
-            confirmacion.setHeaderText(null);
-            confirmacion.setContentText("¿Está seguro de que desea eliminar las vacaciones del trabajador?");
+        if (trabajador == null || trabajador.getPeriodosVacaciones() == null || trabajador.getPeriodosVacaciones().isEmpty()) {
+            mostrarAlerta("Error", "No hay períodos de vacaciones para eliminar.");
+            return;
+        }
 
-            if (confirmacion.showAndWait().get() == ButtonType.OK) {
-                // Limpiar las fechas de vacaciones
-                trabajador.setVacacionesDesde("");
-                trabajador.setVacacionesHasta("");
+        Alert confirmacion = new Alert(Alert.AlertType.CONFIRMATION);
+        confirmacion.setTitle("Confirmar Eliminación");
+        confirmacion.setHeaderText(null);
+        confirmacion.setContentText("¿Está seguro de que desea eliminar todos los períodos de vacaciones?");
 
-                // Limpiar los DatePickers
-                vacacionesDesdePicker.setValue(null);
-                vacacionesHastaPicker.setValue(null);
-
-                // Actualizar en Firebase
-                FirebaseRESTExample.actualizarHorarioTrabajador(trabajador);
-
-                mostrarAlerta("Éxito", "Las vacaciones se han eliminado correctamente");
-            }
-        } catch (Exception e) {
-            System.err.println("Error al eliminar las vacaciones: " + e.getMessage());
-            e.printStackTrace();
-            mostrarAlerta("Error", "No se pudieron eliminar las vacaciones: " + e.getMessage());
+        if (confirmacion.showAndWait().get() == ButtonType.OK) {
+            trabajador.getPeriodosVacaciones().clear();
+            vacacionesTextArea.clear();
+            guardarCambios();
         }
     }
 
@@ -1159,49 +1161,6 @@ public class DetallesTrabajadorController implements Initializable {
             // Ordenar los festivos por fecha
             festivos.sort((f1, f2) -> f1.getFecha().compareTo(f2.getFecha()));
             
-            // Configurar el estilo de las celdas
-            fechaFestivoCol.setCellFactory(column -> new TableCell<Festivo, String>() {
-                @Override
-                protected void updateItem(String item, boolean empty) {
-                    super.updateItem(item, empty);
-                    if (empty || item == null) {
-                        setText(null);
-                        setStyle("");
-                    } else {
-                        setText(item);
-                        getStyleClass().add("festivo-fecha");
-                    }
-                }
-            });
-
-            nombreFestivoCol.setCellFactory(column -> new TableCell<Festivo, String>() {
-                @Override
-                protected void updateItem(String item, boolean empty) {
-                    super.updateItem(item, empty);
-                    if (empty || item == null) {
-                        setText(null);
-                        setStyle("");
-                    } else {
-                        setText(item);
-                        getStyleClass().add("festivo-nombre");
-                    }
-                }
-            });
-
-            tipoFestivoCol.setCellFactory(column -> new TableCell<Festivo, String>() {
-                @Override
-                protected void updateItem(String item, boolean empty) {
-                    super.updateItem(item, empty);
-                    if (empty || item == null) {
-                        setText(null);
-                        setStyle("");
-                    } else {
-                        setText(item);
-                        getStyleClass().add("festivo-tipo");
-                    }
-                }
-            });
-            
             // Actualizar la tabla
             festivosTableView.getItems().setAll(festivos);
             System.out.println("Tabla de festivos actualizada con " + festivos.size() + " registros");
@@ -1210,6 +1169,657 @@ public class DetallesTrabajadorController implements Initializable {
             System.err.println("Error al cargar festivos: " + e.getMessage());
             e.printStackTrace();
             mostrarAlerta("Error", "No se pudieron cargar los festivos: " + e.getMessage());
+        }
+    }
+
+    private TableCell<RegistroFichaje, String> crearCellFactoryIconos() {
+        return new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null || getTableRow() == null || getTableRow().getItem() == null) {
+                    setGraphic(null);
+                    return;
+                }
+
+                try {
+                    RegistroFichaje registro = (RegistroFichaje) getTableRow().getItem();
+                    String estado = registro.getEstado();
+                    String tipo = registro.getTipo();
+                    
+                    System.out.println("Estado del registro: " + estado); // Debug
+                    System.out.println("Tipo del registro: " + tipo); // Debug
+
+                    if (estado == null || estado.isEmpty()) {
+                        setGraphic(null);
+                        return;
+                    }
+
+                    HBox iconos = new HBox(5);
+                    iconos.setStyle("-fx-alignment: center;");
+
+                    switch (estado) {
+                        case "Puntual":
+                            ImageView iconoVerde = new ImageView(new Image(getClass().getResourceAsStream("/verde.png")));
+                            iconoVerde.setFitHeight(16);
+                            iconoVerde.setFitWidth(16);
+                            iconos.getChildren().add(iconoVerde);
+                            break;
+                        case "Retrasada":
+                        case "Tardía":
+                            ImageView iconoVerde1 = new ImageView(new Image(getClass().getResourceAsStream("/verde.png")));
+                            iconoVerde1.setFitHeight(16);
+                            iconoVerde1.setFitWidth(16);
+                            ImageView iconoRojo = new ImageView(new Image(getClass().getResourceAsStream("/rojo.png")));
+                            iconoRojo.setFitHeight(16);
+                            iconoRojo.setFitWidth(16);
+                            iconos.getChildren().addAll(iconoVerde1, iconoRojo);
+                            break;
+                        case "Anticipada":
+                            if ("salida".equals(tipo)) {
+                                ImageView iconoRojo2 = new ImageView(new Image(getClass().getResourceAsStream("/rojo.png")));
+                                iconoRojo2.setFitHeight(16);
+                                iconoRojo2.setFitWidth(16);
+                                iconos.getChildren().add(iconoRojo2);
+                            } else {
+                                ImageView iconoVerde2 = new ImageView(new Image(getClass().getResourceAsStream("/verde.png")));
+                                iconoVerde2.setFitHeight(16);
+                                iconoVerde2.setFitWidth(16);
+                                ImageView iconoVerde3 = new ImageView(new Image(getClass().getResourceAsStream("/verde.png")));
+                                iconoVerde3.setFitHeight(16);
+                                iconoVerde3.setFitWidth(16);
+                                iconos.getChildren().addAll(iconoVerde2, iconoVerde3);
+                            }
+                            break;
+                    }
+
+                    setGraphic(iconos);
+                } catch (Exception e) {
+                    System.err.println("Error al crear iconos: " + e.getMessage());
+                    e.printStackTrace();
+                    setGraphic(null);
+                }
+            }
+        };
+    }
+
+    private void cargarFichajesEnTablas() {
+        if (fichajesTrabajador == null || fichajesTrabajador.isEmpty()) {
+            return;
+        }
+
+        // Filtrar los fichajes según la fecha de cambio de horario
+        List<RegistroFichaje> fichajesFiltrados = fichajesTrabajador;
+        if (fechaCambioHorario != null) {
+            fichajesFiltrados = fichajesTrabajador.stream()
+                .filter(fichaje -> {
+                    try {
+                        LocalDateTime fechaFichaje = LocalDateTime.parse(fichaje.getFechaHora(), 
+                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                        return !fechaFichaje.isBefore(fechaCambioHorario);
+                    } catch (Exception e) {
+                        return false;
+                    }
+                })
+                .collect(Collectors.toList());
+        }
+
+        // Actualizar las tablas con los fichajes filtrados
+        actualizarTablasConFichajes(fichajesFiltrados);
+    }
+
+    private void actualizarTablasConFichajes(List<RegistroFichaje> fichajes) {
+        List<RegistroFichaje> entradasManana = new ArrayList<>();
+        List<RegistroFichaje> entradasTarde = new ArrayList<>();
+        List<RegistroFichaje> salidasManana = new ArrayList<>();
+        List<RegistroFichaje> salidasTarde = new ArrayList<>();
+
+        int contadorRetrasos = 0;
+        int contadorAusencias = 0;
+
+        for (RegistroFichaje registro : fichajes) {
+            try {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                LocalDateTime fechaRegistro = LocalDateTime.parse(registro.getFechaHora(), formatter);
+                LocalTime horaRegistro = fechaRegistro.toLocalTime();
+
+                // Determinar si es mañana o tarde
+                boolean esManana = horaRegistro.isBefore(LocalTime.of(14, 0));
+
+                // Obtener la hora esperada según el tipo de registro y turno
+                LocalTime horaEsperada;
+                if ("entrada".equals(registro.getTipo())) {
+                    horaEsperada = esManana ? 
+                        LocalTime.parse(formatearHora(trabajador.getHoraEntradaManana())) : 
+                        LocalTime.parse(formatearHora(trabajador.getHoraEntradaTarde()));
+                } else {
+                    horaEsperada = esManana ? 
+                        LocalTime.parse(formatearHora(trabajador.getHoraSalidaManana())) : 
+                        LocalTime.parse(formatearHora(trabajador.getHoraSalidaTarde()));
+                }
+
+                // Calcular la diferencia en minutos
+                long diferenciaMinutos = ChronoUnit.MINUTES.between(horaEsperada, horaRegistro);
+
+                // Asignar el estado según la diferencia
+                String estado;
+                if (diferenciaMinutos <= -5) {
+                    estado = "Anticipada";
+                } else if (diferenciaMinutos >= 5) {
+                    estado = "Retrasada";
+                    contadorRetrasos++;
+                } else {
+                    estado = "Puntual";
+                }
+
+                // Asignar el estado al registro
+                registro.setEstado(estado);
+
+                // Añadir el registro a la lista correspondiente
+                if ("entrada".equals(registro.getTipo())) {
+                    if (esManana) {
+                        entradasManana.add(registro);
+                    } else {
+                        entradasTarde.add(registro);
+                    }
+                } else if ("salida".equals(registro.getTipo())) {
+                    if (esManana) {
+                        salidasManana.add(registro);
+                    } else {
+                        salidasTarde.add(registro);
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("Error al procesar el registro: " + registro.getFechaHora());
+                e.printStackTrace();
+            }
+        }
+
+        // Ordenar los registros por fecha
+        entradasManana.sort((r1, r2) -> r2.getFechaHora().compareTo(r1.getFechaHora()));
+        entradasTarde.sort((r1, r2) -> r2.getFechaHora().compareTo(r1.getFechaHora()));
+        salidasManana.sort((r1, r2) -> r2.getFechaHora().compareTo(r1.getFechaHora()));
+        salidasTarde.sort((r1, r2) -> r2.getFechaHora().compareTo(r1.getFechaHora()));
+
+        // Cargar los datos en las tablas
+        entradasMananaTableView.getItems().setAll(entradasManana);
+        entradasTardeTableView.getItems().setAll(entradasTarde);
+        salidasMananaTableView.getItems().setAll(salidasManana);
+        salidasTardeTableView.getItems().setAll(salidasTarde);
+
+        // Actualizar los indicadores
+        indicadorRetrasos.setText(String.valueOf(contadorRetrasos));
+        indicadorAusencias.setText(String.valueOf(contadorAusencias));
+
+        // Actualizar el calendario
+        actualizarCalendario();
+    }
+
+    @FXML
+    private void verHistorial() {
+        try {
+            // Crear una nueva ventana para el historial
+            Stage historialStage = new Stage();
+            historialStage.initModality(Modality.APPLICATION_MODAL);
+            historialStage.setTitle("Historial de PDFs - " + trabajador.getNombre() + " " + trabajador.getApellidos());
+
+            // Crear la tabla para el historial
+            TableView<RegistroHistorial> historialTable = new TableView<>();
+            historialTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+            historialTable.setStyle("-fx-background-color: white;");
+            historialTable.setPrefHeight(700);
+
+            // Crear las columnas
+            TableColumn<RegistroHistorial, String> fechaCol = new TableColumn<>("Fecha de Generación");
+            fechaCol.setCellValueFactory(new PropertyValueFactory<>("fechaGeneracion"));
+            fechaCol.setPrefWidth(180);
+            fechaCol.setStyle("-fx-alignment: CENTER;");
+
+            TableColumn<RegistroHistorial, String> nombreCol = new TableColumn<>("Nombre del Archivo");
+            nombreCol.setCellValueFactory(new PropertyValueFactory<>("nombreArchivo"));
+            nombreCol.setPrefWidth(500);
+            nombreCol.setStyle("-fx-alignment: CENTER;");
+
+            // Columna para los botones de acción
+            TableColumn<RegistroHistorial, Void> accionesCol = new TableColumn<>("Acciones");
+            accionesCol.setPrefWidth(180);
+            accionesCol.setStyle("-fx-alignment: CENTER;");
+
+            accionesCol.setCellFactory(col -> new TableCell<>() {
+                private final Button verButton = new Button("Ver");
+                private final Button eliminarButton = new Button("Eliminar");
+                private final HBox buttons = new HBox(10, verButton, eliminarButton);
+
+                {
+                    buttons.setStyle("-fx-alignment: CENTER;");
+                    verButton.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-min-width: 80px;");
+                    eliminarButton.setStyle("-fx-background-color: #f44336; -fx-text-fill: white; -fx-min-width: 80px;");
+
+                    verButton.setOnAction(e -> {
+                        RegistroHistorial registro = getTableView().getItems().get(getIndex());
+                        try {
+                            // Abrir el PDF en un hilo separado
+                            new Thread(() -> {
+                                try {
+                                    File file = new File(registro.getRutaArchivo());
+                                    if (file.exists()) {
+                                        Desktop.getDesktop().open(file);
+                                    } else {
+                                        Platform.runLater(() -> 
+                                            mostrarAlerta("Error", "El archivo no existe: " + registro.getRutaArchivo())
+                                        );
+                                    }
+                                } catch (Exception ex) {
+                                    Platform.runLater(() -> 
+                                        mostrarAlerta("Error", "No se pudo abrir el archivo: " + ex.getMessage())
+                                    );
+                                }
+                            }).start();
+
+                        } catch (Exception ex) {
+                            mostrarAlerta("Error", "No se pudo abrir el archivo: " + ex.getMessage());
+                        }
+                    });
+
+                    eliminarButton.setOnAction(e -> {
+                        RegistroHistorial registro = getTableView().getItems().get(getIndex());
+                        Alert confirmacion = new Alert(Alert.AlertType.CONFIRMATION);
+                        confirmacion.setTitle("Confirmar Eliminación");
+                        confirmacion.setHeaderText(null);
+                        confirmacion.setContentText("¿Está seguro de que desea eliminar este registro?");
+
+                        if (confirmacion.showAndWait().get() == ButtonType.OK) {
+                            try {
+                                File file = new File(registro.getRutaArchivo());
+                                if (file.exists()) {
+                                    file.delete();
+                                }
+                                historialPDFs.remove(registro);
+                                guardarHistorialPDFs();
+                                historialTable.getItems().remove(registro);
+                                mostrarAlerta("Éxito", "Registro eliminado correctamente");
+                            } catch (Exception ex) {
+                                mostrarAlerta("Error", "No se pudo eliminar el archivo: " + ex.getMessage());
+                            }
+                        }
+                    });
+                }
+
+                @Override
+                protected void updateItem(Void item, boolean empty) {
+                    super.updateItem(item, empty);
+                    setGraphic(empty ? null : buttons);
+                }
+            });
+
+            // Añadir las columnas a la tabla
+            historialTable.getColumns().addAll(fechaCol, nombreCol, accionesCol);
+
+            // Cargar el historial de PDFs
+            cargarHistorialPDFs();
+            
+            // Ordenar los registros por fecha (más recientes primero)
+            historialPDFs.sort((a, b) -> b.getFechaGeneracion().compareTo(a.getFechaGeneracion()));
+
+            // Añadir los registros a la tabla
+            historialTable.getItems().addAll(historialPDFs);
+
+            // Crear el contenedor principal
+            VBox root = new VBox(10);
+            root.setPadding(new Insets(20));
+            root.setStyle("-fx-background-color: white;");
+            root.getChildren().add(historialTable);
+
+            // Crear la escena
+            Scene scene = new Scene(root, 1000, 600);
+
+            // Configurar la ventana
+            historialStage.setScene(scene);
+            historialStage.setResizable(true);
+            historialStage.show();
+        } catch (Exception e) {
+            e.printStackTrace();
+            mostrarAlerta("Error", "No se pudo mostrar el historial: " + e.getMessage());
+        }
+    }
+
+    private void cargarHistorialPDFs() {
+        try {
+            if (trabajador == null) return;
+            
+            String historialFile = String.format(HISTORIAL_FILE_PATTERN, trabajador.getDni());
+            File file = new File(historialFile);
+            if (file.exists()) {
+                ObjectMapper mapper = new ObjectMapper();
+                historialPDFs = mapper.readValue(file, 
+                    new TypeReference<List<RegistroHistorial>>() {});
+            } else {
+                historialPDFs = new ArrayList<>();
+            }
+        } catch (Exception e) {
+            System.err.println("Error al cargar el historial de PDFs: " + e.getMessage());
+            historialPDFs = new ArrayList<>();
+        }
+    }
+
+    private void guardarHistorialPDFs() {
+        try {
+            if (trabajador == null) return;
+            
+            String historialFile = String.format(HISTORIAL_FILE_PATTERN, trabajador.getDni());
+            ObjectMapper mapper = new ObjectMapper();
+            mapper.writeValue(new File(historialFile), historialPDFs);
+        } catch (Exception e) {
+            System.err.println("Error al guardar el historial de PDFs: " + e.getMessage());
+        }
+    }
+
+    private void generarYMostrarPDF() {
+        try {
+            // Crear el documento PDF
+            Document document = new Document(PageSize.A4.rotate());
+            
+            // Obtener el mes más antiguo y más reciente de los fichajes
+            LocalDate fechaMasAntigua = null;
+            LocalDate fechaMasReciente = null;
+            
+            for (RegistroFichaje registro : fichajesTrabajador) {
+                try {
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                    LocalDateTime fechaHora = LocalDateTime.parse(registro.getFechaHora(), formatter);
+                    LocalDate fecha = fechaHora.toLocalDate();
+                    
+                    if (fechaMasAntigua == null || fecha.isBefore(fechaMasAntigua)) {
+                        fechaMasAntigua = fecha;
+                    }
+                    if (fechaMasReciente == null || fecha.isAfter(fechaMasReciente)) {
+                        fechaMasReciente = fecha;
+                    }
+                } catch (Exception e) {
+                    System.err.println("Error al procesar fecha: " + registro.getFechaHora());
+                }
+            }
+            
+            // Hacer las variables finales para usarlas en el lambda
+            final LocalDate fechaInicio = fechaMasAntigua;
+            final LocalDate fechaFin = fechaMasReciente;
+            
+            // Formatear los nombres de los meses en español
+            String mesAntiguo = fechaInicio != null ? 
+                fechaInicio.getMonth().getDisplayName(java.time.format.TextStyle.FULL, new Locale("es")) : "";
+            String mesReciente = fechaFin != null ? 
+                fechaFin.getMonth().getDisplayName(java.time.format.TextStyle.FULL, new Locale("es")) : "";
+            
+            // Obtener la fecha y hora actual para el nombre del archivo
+            String fechaHoraActual = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+            
+            // Crear el nombre del archivo con fecha y hora
+            String fileName = String.format("Registro_%s_%s_%s_%s_%s.pdf",
+                trabajador.getNombre(),
+                trabajador.getApellidos(),
+                mesAntiguo,
+                mesReciente,
+                fechaHoraActual);
+            
+            String filePath = "pdfs/" + fileName;
+            
+            // Crear el directorio si no existe
+            new File("pdfs").mkdirs();
+            
+            PdfWriter.getInstance(document, new FileOutputStream(filePath));
+            document.open();
+
+            // Configurar fuentes
+            Font titleFont = new Font(Font.FontFamily.HELVETICA, 18, Font.BOLD);
+            Font subtitleFont = new Font(Font.FontFamily.HELVETICA, 14, Font.BOLD);
+            Font normalFont = new Font(Font.FontFamily.HELVETICA, 12, Font.NORMAL);
+            Font headerFont = new Font(Font.FontFamily.HELVETICA, 12, Font.BOLD);
+            Font footerFont = new Font(Font.FontFamily.HELVETICA, 8, Font.NORMAL, BaseColor.GRAY);
+
+            // Título
+            Paragraph title = new Paragraph("Registro de Asistencia", titleFont);
+            title.setAlignment(Element.ALIGN_CENTER);
+            title.setSpacingAfter(20);
+            document.add(title);
+
+            // Información del trabajador
+            Paragraph workerInfo = new Paragraph();
+            workerInfo.setFont(normalFont);
+            workerInfo.add("Trabajador: " + trabajador.getNombre() + " " + trabajador.getApellidos() + "\n");
+            workerInfo.add("DNI: " + trabajador.getDni() + "\n");
+            workerInfo.add("Horario del Período:\n");
+
+            // Obtener el horario actual del trabajador
+            if (trabajador.getHoraEntradaManana() != null && trabajador.getHoraSalidaManana() != null) {
+                workerInfo.add("Mañana: " + formatearHora(trabajador.getHoraEntradaManana()) + 
+                             " - " + formatearHora(trabajador.getHoraSalidaManana()) + "\n");
+            }
+            if (trabajador.getHoraEntradaTarde() != null && trabajador.getHoraSalidaTarde() != null) {
+                workerInfo.add("Tarde: " + formatearHora(trabajador.getHoraEntradaTarde()) + 
+                             " - " + formatearHora(trabajador.getHoraSalidaTarde()) + "\n");
+            }
+            workerInfo.setSpacingAfter(20);
+            document.add(workerInfo);
+
+            // Tabla de Entradas
+            Paragraph entradasTitle = new Paragraph("Registro de Entradas", subtitleFont);
+            entradasTitle.setSpacingBefore(20);
+            entradasTitle.setSpacingAfter(10);
+            document.add(entradasTitle);
+
+            PdfPTable entradasTable = new PdfPTable(4);
+            entradasTable.setWidthPercentage(100);
+            entradasTable.setWidths(new float[]{3, 2, 2, 2});
+
+            // Encabezados de la tabla de entradas
+            String[] entradasHeaders = {"Fecha y Hora", "Tipo", "Estado", "Turno"};
+            for (String header : entradasHeaders) {
+                PdfPCell cell = new PdfPCell(new Phrase(header, headerFont));
+                cell.setHorizontalAlignment(Element.ALIGN_CENTER);
+                cell.setBackgroundColor(BaseColor.LIGHT_GRAY);
+                cell.setPadding(5);
+                entradasTable.addCell(cell);
+            }
+
+            // Datos de entradas
+            for (RegistroFichaje registro : fichajesTrabajador) {
+                if (registro.getTipo().equalsIgnoreCase("entrada")) {
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                    LocalDateTime fechaHora = LocalDateTime.parse(registro.getFechaHora(), formatter);
+                    String turno = fechaHora.toLocalTime().isBefore(LocalTime.of(14, 0)) ? "Mañana" : "Tarde";
+                    
+                    entradasTable.addCell(new PdfPCell(new Phrase(fechaHora.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")), normalFont)));
+                    entradasTable.addCell(new PdfPCell(new Phrase(registro.getTipo(), normalFont)));
+                    entradasTable.addCell(new PdfPCell(new Phrase(registro.getEstado(), normalFont)));
+                    entradasTable.addCell(new PdfPCell(new Phrase(turno, normalFont)));
+                }
+            }
+            document.add(entradasTable);
+
+            // Sección de Vacaciones
+            List<PeriodoVacaciones> periodosAEliminar = new ArrayList<>();
+            if (trabajador.getPeriodosVacaciones() != null && !trabajador.getPeriodosVacaciones().isEmpty()) {
+                List<PeriodoVacaciones> periodosRelevantes = trabajador.getPeriodosVacaciones().stream()
+                    .filter(periodo -> {
+                        LocalDate fechaDesdeVacaciones = LocalDate.parse(periodo.getFechaDesde());
+                        LocalDate fechaHastaVacaciones = LocalDate.parse(periodo.getFechaHasta());
+                        return (fechaInicio != null && !fechaHastaVacaciones.isBefore(fechaInicio)) &&
+                               (fechaFin != null && !fechaDesdeVacaciones.isAfter(fechaFin));
+                    })
+                    .collect(Collectors.toList());
+
+                if (!periodosRelevantes.isEmpty()) {
+                    Paragraph vacacionesTitle = new Paragraph("Períodos de Vacaciones", subtitleFont);
+                    vacacionesTitle.setSpacingBefore(20);
+                    vacacionesTitle.setSpacingAfter(10);
+                    document.add(vacacionesTitle);
+
+                    PdfPTable vacacionesTable = new PdfPTable(2);
+                    vacacionesTable.setWidthPercentage(100);
+                    vacacionesTable.setWidths(new float[]{1, 1});
+
+                    // Encabezados de la tabla de vacaciones
+                    String[] vacacionesHeaders = {"Fecha Inicio", "Fecha Fin"};
+                    for (String header : vacacionesHeaders) {
+                        PdfPCell cell = new PdfPCell(new Phrase(header, headerFont));
+                        cell.setHorizontalAlignment(Element.ALIGN_CENTER);
+                        cell.setBackgroundColor(BaseColor.LIGHT_GRAY);
+                        cell.setPadding(5);
+                        vacacionesTable.addCell(cell);
+                    }
+
+                    // Datos de vacaciones
+                    for (PeriodoVacaciones periodo : periodosRelevantes) {
+                        LocalDate fechaDesde = LocalDate.parse(periodo.getFechaDesde());
+                        LocalDate fechaHasta = LocalDate.parse(periodo.getFechaHasta());
+                        
+                        vacacionesTable.addCell(new PdfPCell(new Phrase(
+                            fechaDesde.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")), normalFont)));
+                        vacacionesTable.addCell(new PdfPCell(new Phrase(
+                            fechaHasta.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")), normalFont)));
+                    }
+
+                    document.add(vacacionesTable);
+                    periodosAEliminar.addAll(periodosRelevantes);
+                }
+            }
+
+            // Tabla de Salidas
+            Paragraph salidasTitle = new Paragraph("Registro de Salidas", subtitleFont);
+            salidasTitle.setSpacingBefore(20);
+            salidasTitle.setSpacingAfter(10);
+            document.add(salidasTitle);
+
+            PdfPTable salidasTable = new PdfPTable(4);
+            salidasTable.setWidthPercentage(100);
+            salidasTable.setWidths(new float[]{3, 2, 2, 2});
+
+            // Encabezados de la tabla de salidas
+            String[] salidasHeaders = {"Fecha y Hora", "Tipo", "Estado", "Turno"};
+            for (String header : salidasHeaders) {
+                PdfPCell cell = new PdfPCell(new Phrase(header, headerFont));
+                cell.setHorizontalAlignment(Element.ALIGN_CENTER);
+                cell.setBackgroundColor(BaseColor.LIGHT_GRAY);
+                cell.setPadding(5);
+                salidasTable.addCell(cell);
+            }
+
+            // Datos de salidas
+            for (RegistroFichaje registro : fichajesTrabajador) {
+                if (registro.getTipo().equalsIgnoreCase("salida")) {
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                    LocalDateTime fechaHora = LocalDateTime.parse(registro.getFechaHora(), formatter);
+                    String turno = fechaHora.toLocalTime().isBefore(LocalTime.of(14, 0)) ? "Mañana" : "Tarde";
+                    
+                    salidasTable.addCell(new PdfPCell(new Phrase(fechaHora.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")), normalFont)));
+                    salidasTable.addCell(new PdfPCell(new Phrase(registro.getTipo(), normalFont)));
+                    salidasTable.addCell(new PdfPCell(new Phrase(registro.getEstado(), normalFont)));
+                    salidasTable.addCell(new PdfPCell(new Phrase(turno, normalFont)));
+                }
+            }
+            document.add(salidasTable);
+
+            // Pie de página con fecha de generación
+            Paragraph footer = new Paragraph();
+            footer.setFont(normalFont);
+            footer.add("Generado el: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")));
+            footer.setAlignment(Element.ALIGN_RIGHT);
+            footer.setSpacingBefore(20);
+            document.add(footer);
+
+            // Añadir derechos de autor
+            Paragraph copyright = new Paragraph();
+            copyright.setFont(footerFont);
+            copyright.add("© " + LocalDate.now().getYear() + " Sistema de Control de Asistencia - Todos los derechos reservados\n");
+            copyright.add("Este documento es confidencial y de uso exclusivo para la gestión interna de la empresa.\n");
+            copyright.add("Cualquier reproducción o distribución no autorizada está prohibida.");
+            copyright.setAlignment(Element.ALIGN_CENTER);
+            copyright.setSpacingBefore(10);
+            document.add(copyright);
+
+            document.close();
+
+            // Añadir al historial
+            historialPDFs.add(new RegistroHistorial(
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")),
+                fileName,
+                filePath
+            ));
+
+            // Guardar el historial actualizado
+            guardarHistorialPDFs();
+
+            // Eliminar las vacaciones que se incluyeron en el PDF
+            if (!periodosAEliminar.isEmpty()) {
+                trabajador.getPeriodosVacaciones().removeAll(periodosAEliminar);
+                
+                // Actualizar el TextArea de vacaciones
+                StringBuilder sb = new StringBuilder();
+                for (PeriodoVacaciones periodo : trabajador.getPeriodosVacaciones()) {
+                    sb.append("Desde: ").append(periodo.getFechaDesde())
+                      .append(" - Hasta: ").append(periodo.getFechaHasta())
+                      .append("\n");
+                }
+                vacacionesTextArea.setText(sb.toString());
+                
+                // Guardar los cambios en Firebase
+                guardarCambios();
+            }
+
+            // Mostrar mensaje de éxito
+            mostrarAlerta("Éxito", "PDF generado correctamente");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            mostrarAlerta("Error", "Error al generar el PDF: " + e.getMessage());
+        }
+    }
+
+    private void guardarEstadoCarga() {
+        try {
+            if (trabajador == null) return;
+            
+            String estadoFile = String.format(ESTADO_CARGA_FILE_PATTERN, trabajador.getDni());
+            ObjectMapper mapper = new ObjectMapper();
+            Map<String, Object> estado = new HashMap<>();
+            estado.put("fechaCambioHorario", fechaCambioHorario != null ? 
+                fechaCambioHorario.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : null);
+            mapper.writeValue(new File(estadoFile), estado);
+        } catch (Exception e) {
+            System.err.println("Error al guardar el estado de carga: " + e.getMessage());
+        }
+    }
+
+    private void cargarEstadoCarga() {
+        try {
+            if (trabajador == null) return;
+            
+            String estadoFile = String.format(ESTADO_CARGA_FILE_PATTERN, trabajador.getDni());
+            File file = new File(estadoFile);
+            if (file.exists()) {
+                ObjectMapper mapper = new ObjectMapper();
+                Map<String, String> estado = mapper.readValue(file, new TypeReference<Map<String, String>>() {});
+                String fechaStr = estado.get("fechaCambioHorario");
+                if (fechaStr != null) {
+                    fechaCambioHorario = LocalDateTime.parse(fechaStr, 
+                        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error al cargar el estado de carga: " + e.getMessage());
+            fechaCambioHorario = null;
+        }
+    }
+
+    private void guardarCambios() {
+        try {
+            // Actualizar el trabajador en Firebase
+            FirebaseRESTExample.actualizarHorarioTrabajador(trabajador);
+            mostrarAlerta("Éxito", "Los cambios se han guardado correctamente.");
+        } catch (Exception e) {
+            System.err.println("Error al guardar los cambios: " + e.getMessage());
+            e.printStackTrace();
+            mostrarAlerta("Error", "No se pudieron guardar los cambios: " + e.getMessage());
         }
     }
 }

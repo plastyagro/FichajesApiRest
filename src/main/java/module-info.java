@@ -5,6 +5,10 @@ module com.example.fichajesapirest {
     requires org.json;
     requires unirest.java;
     requires java.desktop;
+    requires java.mail;
+    requires itextpdf;
+    requires com.fasterxml.jackson.core;
+    requires com.fasterxml.jackson.databind;
 
 
     opens com.example.fichajesapirest to javafx.fxml;

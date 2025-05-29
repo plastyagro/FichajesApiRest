@@ -23,10 +23,12 @@ public class Trabajador {
     private String correo;
     private String id;
     private List<RegistroFichaje> fichajes;
+    private List<PeriodoVacaciones> periodosVacaciones;
 
     // Constructor vacío
     public Trabajador() {
         this.fichajes = new ArrayList<>();
+        this.periodosVacaciones = new ArrayList<>();
     }
 
     // Constructor con parámetros básicos
@@ -35,6 +37,7 @@ public class Trabajador {
         this.apellidos = apellidos;
         this.dni = dni;
         this.fichajes = new ArrayList<>();
+        this.periodosVacaciones = new ArrayList<>();
     }
 
     // Getters
@@ -67,11 +70,13 @@ public class Trabajador {
     }
 
     public String getVacacionesDesde() {
-        return vacacionesDesde;
+        return periodosVacaciones != null && !periodosVacaciones.isEmpty() ? 
+            periodosVacaciones.get(0).getFechaDesde() : "";
     }
 
     public String getVacacionesHasta() {
-        return vacacionesHasta;
+        return periodosVacaciones != null && !periodosVacaciones.isEmpty() ? 
+            periodosVacaciones.get(0).getFechaHasta() : "";
     }
 
     public String getCorreo() {
@@ -84,6 +89,10 @@ public class Trabajador {
 
     public List<RegistroFichaje> getFichajes() {
         return fichajes;
+    }
+
+    public List<PeriodoVacaciones> getPeriodosVacaciones() {
+        return periodosVacaciones;
     }
 
     // Setters
@@ -135,8 +144,19 @@ public class Trabajador {
         this.fichajes = fichajes;
     }
 
+    public void setPeriodosVacaciones(List<PeriodoVacaciones> periodosVacaciones) {
+        this.periodosVacaciones = periodosVacaciones;
+    }
+
     public void addFichaje(RegistroFichaje fichaje) {
         this.fichajes.add(fichaje);
+    }
+
+    public void addPeriodoVacaciones(PeriodoVacaciones periodo) {
+        if (this.periodosVacaciones == null) {
+            this.periodosVacaciones = new ArrayList<>();
+        }
+        this.periodosVacaciones.add(periodo);
     }
 }
 
