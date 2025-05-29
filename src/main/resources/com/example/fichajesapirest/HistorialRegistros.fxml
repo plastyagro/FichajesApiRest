@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.net.*?>
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+
+<AnchorPane maxHeight="Infinity" maxWidth="Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="1000.0" prefWidth="100000.0" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.example.fichajesapirest.HistorialRegistrosController">
+    <children>
+        <VBox alignment="TOP_CENTER" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" focusTraversable="true" spacing="0" style="-fx-background-color: white;">
+            <stylesheets>
+                <URL value="@style.css" />
+            </stylesheets>
+
+            <padding>
+                <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+            </padding>
+
+            <VBox spacing="3" styleClass="header-box">
+                <Text style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-fill: #2c3e50;" text="Historial de Registros" />
+                <Text style="-fx-font-size: 10px; -fx-fill: #7f8c8d;" text="Visualiza y gestiona los registros PDF generados" />
+            </VBox>
+
+            <Region prefHeight="10" />
+
+            <TableView fx:id="historialTableView" maxHeight="Infinity" maxWidth="Infinity" minHeight="500.0" minWidth="98000.0" prefHeight="700.0" prefWidth="98000.0" styleClass="custom-table" VBox.vgrow="ALWAYS" HBox.hgrow="ALWAYS">
+                <columns>
+                    <TableColumn fx:id="fechaCol" minWidth="50" prefWidth="50" styleClass="table-column-header" text="Fecha" />
+                    <TableColumn fx:id="nombreArchivoCol" minWidth="255" prefWidth="255" styleClass="table-column-header" text="Nombre del Archivo" />
+                    <TableColumn fx:id="accionesCol" minWidth="100" prefWidth="100" styleClass="table-column-header" text="Acciones" />
+                </columns>
+            </TableView>
+
+            <Region prefHeight="10" />
+
+            <HBox alignment="CENTER_RIGHT" spacing="8" styleClass="button-container">
+                <Button onAction="#cerrarVentana" styleClass="button, button-secondary" text="Cerrar" />
+            </HBox>
+        </VBox>
+    </children>
+</AnchorPane> 
