@@ -110,7 +110,6 @@ public class FirebaseRESTExample {
         }
 
         int responseCode = con.getResponseCode();
-        System.out.println("Response Code: " + responseCode);
 
         InputStream is = (responseCode == 200) ? con.getInputStream() : con.getErrorStream();
         BufferedReader in = new BufferedReader(new InputStreamReader(is));
@@ -140,7 +139,6 @@ public class FirebaseRESTExample {
         con.setRequestProperty("Content-Type", "application/json");
 
         int responseCode = con.getResponseCode();
-        System.out.println("Response Code: " + responseCode);
 
         BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
         StringBuilder response = new StringBuilder();
@@ -150,8 +148,7 @@ public class FirebaseRESTExample {
         }
         in.close();
 
-        // Imprime la respuesta JSON para ver su estructura
-        System.out.println("Raw Firestore JSON Response: " + response.toString());
+
 
         return response.toString();
     }

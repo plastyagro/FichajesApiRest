@@ -14,6 +14,7 @@ import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.*;
 import java.time.LocalDateTime;
@@ -49,6 +50,11 @@ import java.awt.Desktop;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+/**
+ * Controlador para la vista de detalles del trabajador.
+ * Gestiona la visualización y manipulación de la información del trabajador,
+ * incluyendo sus fichajes, horarios, vacaciones y generación de informes PDF.
+ */
 public class DetallesTrabajadorController implements Initializable {
     @FXML
     private Label nombreLabel;
@@ -166,6 +172,22 @@ public class DetallesTrabajadorController implements Initializable {
     private Button verHistorialButton;
     @FXML
     private TextArea vacacionesTextArea;
+    @FXML
+    private ComboBox<String> mesHorasExtrasCombo;
+    @FXML
+    private ComboBox<Integer> añoHorasExtrasCombo;
+    @FXML
+    private TableView<HorasExtra> horasExtrasTableView;
+    @FXML
+    private TableColumn<HorasExtra, LocalDate> fechaHorasExtrasCol;
+    @FXML
+    private TableColumn<HorasExtra, Double> horasAcumuladasCol;
+    @FXML
+    private TableColumn<HorasExtra, String> estadoHorasExtrasCol;
+    @FXML
+    private TableColumn<HorasExtra, LocalDateTime> fechaCalculoCol;
+    @FXML
+    private Label totalHorasExtrasLabel;
 
     private Trabajador trabajador;
     private List<RegistroFichaje> fichajesTrabajador;
@@ -177,6 +199,13 @@ public class DetallesTrabajadorController implements Initializable {
     private LocalDateTime fechaCambioHorario = null;
     private FirebaseRESTExample firebase = new FirebaseRESTExample();
 
+    private HorasExtraService horasExtraService = new HorasExtraService();
+
+    /**
+     * Inicializa el controlador y configura los componentes de la interfaz.
+     * @param location La ubicación utilizada para resolver rutas relativas
+     * @param resources Los recursos utilizados para localizar el objeto raíz
+     */
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         // Cargar las imágenes
@@ -297,8 +326,137 @@ public class DetallesTrabajadorController implements Initializable {
         vacacionesTextArea.setEditable(false);
         vacacionesTextArea.setWrapText(true);
         vacacionesTextArea.setStyle("-fx-background-color: white; -fx-font-size: 12px;");
+
+        // Inicializar los combos de mes y año para horas extras
+        mesHorasExtrasCombo.getItems().addAll(
+            "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+            "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+        );
+        
+        int añoActual = LocalDate.now().getYear();
+        añoHorasExtrasCombo.getItems().addAll(
+            añoActual - 1, añoActual, añoActual + 1
+        );
+        añoHorasExtrasCombo.setValue(añoActual);
+
+        // Configurar la tabla de horas extras
+        configurarTablaHorasExtras();
     }
 
+    private void configurarTablaHorasExtras() {
+        fechaHorasExtrasCol.setCellValueFactory(new PropertyValueFactory<>("fecha"));
+        horasAcumuladasCol.setCellValueFactory(new PropertyValueFactory<>("horasAcumuladas"));
+        estadoHorasExtrasCol.setCellValueFactory(new PropertyValueFactory<>("estado"));
+        fechaCalculoCol.setCellValueFactory(new PropertyValueFactory<>("fechaCalculo"));
+
+        // Formatear la columna de fecha
+        fechaHorasExtrasCol.setCellFactory(col -> new TableCell<HorasExtra, LocalDate>() {
+            @Override
+            protected void updateItem(LocalDate fecha, boolean empty) {
+                super.updateItem(fecha, empty);
+                if (empty || fecha == null) {
+                    setText(null);
+                } else {
+                    setText(fecha.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+                }
+            }
+        });
+
+        // Formatear la columna de horas acumuladas
+        horasAcumuladasCol.setCellFactory(col -> new TableCell<HorasExtra, Double>() {
+            @Override
+            protected void updateItem(Double horas, boolean empty) {
+                super.updateItem(horas, empty);
+                if (empty || horas == null) {
+                    setText(null);
+                } else {
+                    setText(String.format("%.2f", horas));
+                }
+            }
+        });
+
+        // Formatear la columna de fecha de cálculo
+        fechaCalculoCol.setCellFactory(col -> new TableCell<HorasExtra, LocalDateTime>() {
+            @Override
+            protected void updateItem(LocalDateTime fecha, boolean empty) {
+                super.updateItem(fecha, empty);
+                if (empty || fecha == null) {
+                    setText(null);
+                } else {
+                    setText(fecha.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")));
+                }
+            }
+        });
+    }
+
+    @FXML
+    private void calcularHorasExtras() {
+        if (trabajador == null) {
+            mostrarAlerta("Error", "No hay trabajador seleccionado");
+            return;
+        }
+
+        String mesSeleccionado = mesHorasExtrasCombo.getValue();
+        Integer añoSeleccionado = añoHorasExtrasCombo.getValue();
+
+        if (mesSeleccionado == null || añoSeleccionado == null) {
+            mostrarAlerta("Error", "Por favor, seleccione mes y año");
+            return;
+        }
+
+        Alert confirmacion = new Alert(Alert.AlertType.CONFIRMATION);
+        confirmacion.setTitle("Confirmar Cálculo");
+        confirmacion.setHeaderText(null);
+        confirmacion.setContentText("¿Desea calcular las horas extras para " + mesSeleccionado + " de " + añoSeleccionado + "?");
+
+        if (confirmacion.showAndWait().get() == ButtonType.OK) {
+            try {
+                int numeroMes = obtenerNumeroMes(mesSeleccionado);
+                horasExtraService.calcularHorasExtrasTrabajador(trabajador, numeroMes, añoSeleccionado);
+                cargarHorasExtras();
+                mostrarAlerta("Éxito", "Horas extras calculadas correctamente");
+            } catch (Exception e) {
+                mostrarAlerta("Error", "Error al calcular horas extras: " + e.getMessage());
+            }
+        }
+    }
+
+    private void cargarHorasExtras() {
+        if (trabajador == null) return;
+
+        List<HorasExtra> horasExtras = horasExtraService.getHorasExtrasTrabajador(trabajador);
+        horasExtrasTableView.getItems().setAll(horasExtras);
+
+        // Calcular y mostrar el total
+        double total = horasExtras.stream()
+            .mapToDouble(HorasExtra::getHorasAcumuladas)
+            .sum();
+        totalHorasExtrasLabel.setText(String.format("%.2f", total));
+    }
+
+    private int obtenerNumeroMes(String nombreMes) {
+        Map<String, Integer> meses = new HashMap<>();
+        meses.put("Enero", 1);
+        meses.put("Febrero", 2);
+        meses.put("Marzo", 3);
+        meses.put("Abril", 4);
+        meses.put("Mayo", 5);
+        meses.put("Junio", 6);
+        meses.put("Julio", 7);
+        meses.put("Agosto", 8);
+        meses.put("Septiembre", 9);
+        meses.put("Octubre", 10);
+        meses.put("Noviembre", 11);
+        meses.put("Diciembre", 12);
+
+        return meses.getOrDefault(nombreMes, 1);
+    }
+
+    /**
+     * Aplica una animación de entrada a un elemento de la interfaz.
+     * @param node El nodo a animar
+     * @param delay El retraso en milisegundos antes de iniciar la animación
+     */
     private void animateElement(Node node, int delay) {
         node.setOpacity(0);
         node.setTranslateY(20);
@@ -315,6 +473,9 @@ public class DetallesTrabajadorController implements Initializable {
         translateIn.play();
     }
 
+    /**
+     * Configura el calendario de trabajo con los días trabajados.
+     */
     private void configurarCalendario() {
         // Deshabilitar la edición del DatePicker
         calendarioTrabajo.setEditable(false);
@@ -339,6 +500,10 @@ public class DetallesTrabajadorController implements Initializable {
         });
     }
 
+    /**
+     * Actualiza el resumen mensual de días trabajados.
+     * @param fecha La fecha para la cual se calcula el resumen
+     */
     private void actualizarResumenMensual(LocalDate fecha) {
         if (fecha == null) return;
 
@@ -368,6 +533,9 @@ public class DetallesTrabajadorController implements Initializable {
         }
     }
 
+    /**
+     * Actualiza el calendario con los días trabajados.
+     */
     private void actualizarCalendario() {
         diasTrabajados.clear();
 
@@ -395,6 +563,11 @@ public class DetallesTrabajadorController implements Initializable {
         actualizarResumenMensual(hoy);
     }
 
+    /**
+     * Establece el trabajador y sus fichajes en el controlador.
+     * @param trabajador El trabajador a mostrar
+     * @param registroFichajes La lista de fichajes del trabajador
+     */
     public void setTrabajador(Trabajador trabajador, List<RegistroFichaje> registroFichajes) {
         this.trabajador = trabajador;
         
@@ -519,8 +692,16 @@ public class DetallesTrabajadorController implements Initializable {
 
         // Cargar el historial de PDFs
         cargarHistorialPDFs();
+
+        // Cargar las horas extras del trabajador
+        cargarHorasExtras();
     }
 
+    /**
+     * Formatea una hora en formato HH:mm.
+     * @param hora La hora a formatear
+     * @return La hora formateada
+     */
     private String formatearHora(String hora) {
         if (hora == null || hora.isEmpty()) return "00:00";
         String[] partes = hora.split(":");
@@ -534,6 +715,11 @@ public class DetallesTrabajadorController implements Initializable {
         }
     }
 
+    /**
+     * Crea un icono con la imagen especificada.
+     * @param imagen La imagen para el icono
+     * @return El ImageView configurado
+     */
     private ImageView crearIcono(Image imagen) {
         ImageView view = new ImageView(imagen);
         view.setFitWidth(20);
@@ -541,12 +727,18 @@ public class DetallesTrabajadorController implements Initializable {
         return view;
     }
 
+    /**
+     * Cierra la ventana actual.
+     */
     @FXML
     private void cerrarVentana() {
         Stage stage = (Stage) cerrarButton.getScene().getWindow();
         stage.close();
     }
 
+    /**
+     * Exporta los datos del trabajador a un archivo CSV.
+     */
     @FXML
     private void exportarDatos() {
         if (trabajador == null || fichajesTrabajador == null || fichajesTrabajador.isEmpty()) {
@@ -604,6 +796,12 @@ public class DetallesTrabajadorController implements Initializable {
         });
     }
 
+    /**
+     * Exporta los datos a un archivo CSV.
+     * @param file El archivo donde se guardarán los datos
+     * @param tipoExportacion El tipo de datos a exportar
+     * @throws IOException Si ocurre un error al escribir el archivo
+     */
     private void exportarCSV(File file, String tipoExportacion) throws IOException {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
             // Escribir encabezado
@@ -634,6 +832,11 @@ public class DetallesTrabajadorController implements Initializable {
         }
     }
 
+    /**
+     * Muestra una alerta con el título y mensaje especificados.
+     * @param titulo El título de la alerta
+     * @param mensaje El mensaje a mostrar
+     */
     private void mostrarAlerta(String titulo, String mensaje) {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle(titulo);
@@ -642,6 +845,9 @@ public class DetallesTrabajadorController implements Initializable {
         alert.showAndWait();
     }
 
+    /**
+     * Filtra los fichajes por fecha según el período seleccionado.
+     */
     @FXML
     private void filtrarPorFecha() {
         if (fichajesTrabajador == null) {
@@ -708,6 +914,9 @@ public class DetallesTrabajadorController implements Initializable {
         actualizarTablasConFichajes(registrosFiltrados);
     }
 
+    /**
+     * Limpia los filtros aplicados.
+     */
     @FXML
     private void limpiarFiltro() {
         periodoFiltro.setValue(null);
@@ -715,6 +924,9 @@ public class DetallesTrabajadorController implements Initializable {
         actualizarTablasConFichajes(fichajesTrabajador);
     }
 
+    /**
+     * Guarda el horario del trabajador.
+     */
     @FXML
     private void guardarHorario() {
         try {
@@ -731,21 +943,21 @@ public class DetallesTrabajadorController implements Initializable {
             List<RegistroFichaje> fichajesActuales = new ArrayList<>(fichajesTrabajador);
 
             // Actualizar solo los horarios en el objeto trabajador
-            trabajador.setHoraEntradaManana(horaEntradaMananaField.getText());
-            trabajador.setHoraSalidaManana(horaSalidaMananaField.getText());
-            trabajador.setHoraEntradaTarde(horaEntradaTardeField.getText());
-            trabajador.setHoraSalidaTarde(horaSalidaTardeField.getText());
+            trabajador.setHoraEntradaManana(horaEntradaMananaField.getText().isEmpty() ? null : horaEntradaMananaField.getText());
+            trabajador.setHoraSalidaManana(horaSalidaMananaField.getText().isEmpty() ? null : horaSalidaMananaField.getText());
+            trabajador.setHoraEntradaTarde(horaEntradaTardeField.getText().isEmpty() ? null : horaEntradaTardeField.getText());
+            trabajador.setHoraSalidaTarde(horaSalidaTardeField.getText().isEmpty() ? null : horaSalidaTardeField.getText());
 
             // Actualizar en Firebase
             FirebaseRESTExample.actualizarHorarioTrabajador(trabajador);
 
             // Actualizar el horario en la información personal
             StringBuilder horario = new StringBuilder();
-            if (!horaEntradaMananaField.getText().isEmpty() && !horaSalidaMananaField.getText().isEmpty()) {
+            if (trabajador.getHoraEntradaManana() != null && trabajador.getHoraSalidaManana() != null) {
                 horario.append("Mañana: ").append(formatearHora(trabajador.getHoraEntradaManana()))
                       .append(" - ").append(formatearHora(trabajador.getHoraSalidaManana())).append("\n");
             }
-            if (!horaEntradaTardeField.getText().isEmpty() && !horaSalidaTardeField.getText().isEmpty()) {
+            if (trabajador.getHoraEntradaTarde() != null && trabajador.getHoraSalidaTarde() != null) {
                 horario.append("Tarde: ").append(formatearHora(trabajador.getHoraEntradaTarde()))
                       .append(" - ").append(formatearHora(trabajador.getHoraSalidaTarde()));
             }
@@ -786,6 +998,11 @@ public class DetallesTrabajadorController implements Initializable {
         }
     }
 
+    /**
+     * Valida el formato de una hora.
+     * @param hora La hora a validar
+     * @return true si el formato es válido, false en caso contrario
+     */
     private boolean validarFormatoHora(String hora) {
         if (hora == null || hora.isEmpty()) return true; // Permitir campos vacíos
         try {
@@ -799,6 +1016,9 @@ public class DetallesTrabajadorController implements Initializable {
         }
     }
 
+    /**
+     * Calcula las estadísticas de asistencia del trabajador.
+     */
     private void calcularEstadisticas() {
         if (fichajesTrabajador == null || fichajesTrabajador.isEmpty()) {
             diasTrabajadosLabel.setText("0 días");
@@ -821,6 +1041,10 @@ public class DetallesTrabajadorController implements Initializable {
         diasTrabajadosLabel.setText(totalDias + " días");
     }
 
+    /**
+     * Configura el tamaño del DatePicker.
+     * @param datePicker El DatePicker a configurar
+     */
     private void configurarTamanioDatePicker(DatePicker datePicker) {
         datePicker.setEditable(false);
         datePicker.setPrefWidth(250);
@@ -835,6 +1059,13 @@ public class DetallesTrabajadorController implements Initializable {
         });
     }
 
+    /**
+     * Configura las columnas de una tabla de fichajes.
+     * @param fechaCol Columna de fecha
+     * @param tipoCol Columna de tipo
+     * @param estadoCol Columna de estado
+     * @param iconosCol Columna de iconos
+     */
     private void configurarColumnasTabla(TableColumn<RegistroFichaje, String> fechaCol,
                                          TableColumn<RegistroFichaje, String> tipoCol,
                                          TableColumn<RegistroFichaje, String> estadoCol,
@@ -900,6 +1131,13 @@ public class DetallesTrabajadorController implements Initializable {
         iconosCol.getStyleClass().add("iconos-column");
     }
 
+    /**
+     * Configura las columnas de iconos en una tabla.
+     * @param col La columna a configurar
+     * @param verde Imagen para estado correcto
+     * @param rojo Imagen para estado incorrecto
+     * @param advertencia Imagen para advertencias
+     */
     private void configurarColumnasIconos(TableColumn<RegistroFichaje, String> col, Image verde, Image rojo, Image advertencia) {
         col.setCellFactory(column -> new TableCell<>() {
             @Override
@@ -923,9 +1161,6 @@ public class DetallesTrabajadorController implements Initializable {
                                 return;
                             }
 
-                            System.out.println("Procesando iconos para registro: " + registro.getFechaHora());
-                            System.out.println("Estado: " + estado);
-                            System.out.println("Tipo: " + tipo);
 
                             switch (estado) {
                                 case "Puntual":
@@ -1023,6 +1258,9 @@ public class DetallesTrabajadorController implements Initializable {
         });
     }
 
+    /**
+     * Muestra las entradas de la mañana.
+     */
     @FXML
     private void mostrarEntradasManana() {
         entradasMananaTableView.setVisible(true);
@@ -1030,6 +1268,9 @@ public class DetallesTrabajadorController implements Initializable {
         menuEntradas.setText("Mañana");
     }
 
+    /**
+     * Muestra las entradas de la tarde.
+     */
     @FXML
     private void mostrarEntradasTarde() {
         entradasMananaTableView.setVisible(false);
@@ -1037,6 +1278,9 @@ public class DetallesTrabajadorController implements Initializable {
         menuEntradas.setText("Tarde");
     }
 
+    /**
+     * Muestra las salidas de la mañana.
+     */
     @FXML
     private void mostrarSalidasManana() {
         salidasMananaTableView.setVisible(true);
@@ -1044,6 +1288,9 @@ public class DetallesTrabajadorController implements Initializable {
         menuSalidas.setText("Mañana");
     }
 
+    /**
+     * Muestra las salidas de la tarde.
+     */
     @FXML
     private void mostrarSalidasTarde() {
         salidasMananaTableView.setVisible(false);
@@ -1051,6 +1298,10 @@ public class DetallesTrabajadorController implements Initializable {
         menuSalidas.setText("Tarde");
     }
 
+    /**
+     * Limpia los recursos al cerrar la ventana.
+     * @param event El evento de cierre
+     */
     private void limpiarRecursos(WindowEvent event) {
         // Limpiar referencias a objetos grandes
         fichajesTrabajador = null;
@@ -1079,6 +1330,9 @@ public class DetallesTrabajadorController implements Initializable {
         }
     }
 
+    /**
+     * Guarda un nuevo período de vacaciones.
+     */
     @FXML
     private void guardarVacaciones() {
         if (trabajador == null) return;
@@ -1125,6 +1379,9 @@ public class DetallesTrabajadorController implements Initializable {
         guardarCambios();
     }
 
+    /**
+     * Elimina todos los períodos de vacaciones.
+     */
     @FXML
     private void eliminarVacaciones() {
         if (trabajador == null || trabajador.getPeriodosVacaciones() == null || trabajador.getPeriodosVacaciones().isEmpty()) {
@@ -1144,17 +1401,15 @@ public class DetallesTrabajadorController implements Initializable {
         }
     }
 
+    /**
+     * Carga los festivos del año actual.
+     */
     private void cargarFestivos() {
         try {
-            System.out.println("Iniciando carga de festivos...");
             int añoActual = LocalDate.now().getYear();
-            System.out.println("Obteniendo festivos para el año " + añoActual);
-            
             List<Festivo> festivos = FestivosService.obtenerFestivos(añoActual);
-            System.out.println("Número de festivos obtenidos: " + festivos.size());
             
             if (festivos.isEmpty()) {
-                System.err.println("No se obtuvieron festivos");
                 return;
             }
             
@@ -1163,15 +1418,16 @@ public class DetallesTrabajadorController implements Initializable {
             
             // Actualizar la tabla
             festivosTableView.getItems().setAll(festivos);
-            System.out.println("Tabla de festivos actualizada con " + festivos.size() + " registros");
             
         } catch (Exception e) {
-            System.err.println("Error al cargar festivos: " + e.getMessage());
-            e.printStackTrace();
             mostrarAlerta("Error", "No se pudieron cargar los festivos: " + e.getMessage());
         }
     }
 
+    /**
+     * Crea una celda de tabla con iconos.
+     * @return La celda configurada
+     */
     private TableCell<RegistroFichaje, String> crearCellFactoryIconos() {
         return new TableCell<>() {
             @Override
@@ -1186,9 +1442,6 @@ public class DetallesTrabajadorController implements Initializable {
                     RegistroFichaje registro = (RegistroFichaje) getTableRow().getItem();
                     String estado = registro.getEstado();
                     String tipo = registro.getTipo();
-                    
-                    System.out.println("Estado del registro: " + estado); // Debug
-                    System.out.println("Tipo del registro: " + tipo); // Debug
 
                     if (estado == null || estado.isEmpty()) {
                         setGraphic(null);
@@ -1235,14 +1488,15 @@ public class DetallesTrabajadorController implements Initializable {
 
                     setGraphic(iconos);
                 } catch (Exception e) {
-                    System.err.println("Error al crear iconos: " + e.getMessage());
-                    e.printStackTrace();
                     setGraphic(null);
                 }
             }
         };
     }
 
+    /**
+     * Carga los fichajes en las tablas.
+     */
     private void cargarFichajesEnTablas() {
         if (fichajesTrabajador == null || fichajesTrabajador.isEmpty()) {
             return;
@@ -1268,6 +1522,10 @@ public class DetallesTrabajadorController implements Initializable {
         actualizarTablasConFichajes(fichajesFiltrados);
     }
 
+    /**
+     * Actualiza las tablas con los fichajes proporcionados.
+     * @param fichajes Lista de fichajes a mostrar
+     */
     private void actualizarTablasConFichajes(List<RegistroFichaje> fichajes) {
         List<RegistroFichaje> entradasManana = new ArrayList<>();
         List<RegistroFichaje> entradasTarde = new ArrayList<>();
@@ -1283,33 +1541,42 @@ public class DetallesTrabajadorController implements Initializable {
                 LocalDateTime fechaRegistro = LocalDateTime.parse(registro.getFechaHora(), formatter);
                 LocalTime horaRegistro = fechaRegistro.toLocalTime();
 
-                // Determinar si es mañana o tarde
-                boolean esManana = horaRegistro.isBefore(LocalTime.of(14, 0));
-
-                // Obtener la hora esperada según el tipo de registro y turno
-                LocalTime horaEsperada;
-                if ("entrada".equals(registro.getTipo())) {
-                    horaEsperada = esManana ? 
-                        LocalTime.parse(formatearHora(trabajador.getHoraEntradaManana())) : 
-                        LocalTime.parse(formatearHora(trabajador.getHoraEntradaTarde()));
-                } else {
-                    horaEsperada = esManana ? 
-                        LocalTime.parse(formatearHora(trabajador.getHoraSalidaManana())) : 
-                        LocalTime.parse(formatearHora(trabajador.getHoraSalidaTarde()));
+                // Determinar si es mañana o tarde basado en el horario configurado
+                boolean esManana = false;
+                if (trabajador.getHoraEntradaManana() != null && trabajador.getHoraSalidaManana() != null) {
+                    LocalTime horaSalidaManana = LocalTime.parse(formatearHora(trabajador.getHoraSalidaManana()));
+                    esManana = horaRegistro.isBefore(horaSalidaManana.plusMinutes(30));
+                } else if (trabajador.getHoraEntradaTarde() != null && trabajador.getHoraSalidaTarde() != null) {
+                    LocalTime horaEntradaTarde = LocalTime.parse(formatearHora(trabajador.getHoraEntradaTarde()));
+                    esManana = horaRegistro.isBefore(horaEntradaTarde);
                 }
 
-                // Calcular la diferencia en minutos
-                long diferenciaMinutos = ChronoUnit.MINUTES.between(horaEsperada, horaRegistro);
+                // Obtener la hora esperada según el tipo de registro y turno
+                LocalTime horaEsperada = null;
+                if ("entrada".equals(registro.getTipo())) {
+                    if (esManana && trabajador.getHoraEntradaManana() != null) {
+                        horaEsperada = LocalTime.parse(formatearHora(trabajador.getHoraEntradaManana()));
+                    } else if (!esManana && trabajador.getHoraEntradaTarde() != null) {
+                        horaEsperada = LocalTime.parse(formatearHora(trabajador.getHoraEntradaTarde()));
+                    }
+                } else {
+                    if (esManana && trabajador.getHoraSalidaManana() != null) {
+                        horaEsperada = LocalTime.parse(formatearHora(trabajador.getHoraSalidaManana()));
+                    } else if (!esManana && trabajador.getHoraSalidaTarde() != null) {
+                        horaEsperada = LocalTime.parse(formatearHora(trabajador.getHoraSalidaTarde()));
+                    }
+                }
 
                 // Asignar el estado según la diferencia
-                String estado;
-                if (diferenciaMinutos <= -5) {
-                    estado = "Anticipada";
-                } else if (diferenciaMinutos >= 5) {
-                    estado = "Retrasada";
-                    contadorRetrasos++;
-                } else {
-                    estado = "Puntual";
+                String estado = "Puntual";
+                if (horaEsperada != null) {
+                    long diferenciaMinutos = ChronoUnit.MINUTES.between(horaEsperada, horaRegistro);
+                    if (diferenciaMinutos <= -5) {
+                        estado = "Anticipada";
+                    } else if (diferenciaMinutos >= 5) {
+                        estado = "Retrasada";
+                        contadorRetrasos++;
+                    }
                 }
 
                 // Asignar el estado al registro
@@ -1355,6 +1622,9 @@ public class DetallesTrabajadorController implements Initializable {
         actualizarCalendario();
     }
 
+    /**
+     * Muestra el historial de PDFs generados.
+     */
     @FXML
     private void verHistorial() {
         try {
@@ -1483,6 +1753,9 @@ public class DetallesTrabajadorController implements Initializable {
         }
     }
 
+    /**
+     * Carga el historial de PDFs desde el archivo.
+     */
     private void cargarHistorialPDFs() {
         try {
             if (trabajador == null) return;
@@ -1502,6 +1775,9 @@ public class DetallesTrabajadorController implements Initializable {
         }
     }
 
+    /**
+     * Guarda el historial de PDFs en el archivo.
+     */
     private void guardarHistorialPDFs() {
         try {
             if (trabajador == null) return;
@@ -1514,6 +1790,9 @@ public class DetallesTrabajadorController implements Initializable {
         }
     }
 
+    /**
+     * Genera y muestra un PDF con los registros del trabajador.
+     */
     private void generarYMostrarPDF() {
         try {
             // Crear el documento PDF
@@ -1775,6 +2054,9 @@ public class DetallesTrabajadorController implements Initializable {
         }
     }
 
+    /**
+     * Guarda el estado de carga actual.
+     */
     private void guardarEstadoCarga() {
         try {
             if (trabajador == null) return;
@@ -1790,6 +2072,9 @@ public class DetallesTrabajadorController implements Initializable {
         }
     }
 
+    /**
+     * Carga el estado de carga guardado.
+     */
     private void cargarEstadoCarga() {
         try {
             if (trabajador == null) return;
@@ -1811,6 +2096,9 @@ public class DetallesTrabajadorController implements Initializable {
         }
     }
 
+    /**
+     * Guarda los cambios realizados en el trabajador.
+     */
     private void guardarCambios() {
         try {
             // Actualizar el trabajador en Firebase

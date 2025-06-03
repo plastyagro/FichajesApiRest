@@ -9,6 +9,7 @@ module com.example.fichajesapirest {
     requires itextpdf;
     requires com.fasterxml.jackson.core;
     requires com.fasterxml.jackson.databind;
+    requires spring.beans;
 
 
     opens com.example.fichajesapirest to javafx.fxml;

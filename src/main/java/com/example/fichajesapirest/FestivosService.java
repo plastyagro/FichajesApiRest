@@ -11,18 +11,27 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Servicio para gestionar los días festivos.
+ * Proporciona métodos para obtener y gestionar los días festivos de un año específico.
+ */
 public class FestivosService {
+    // URL base para la API de festivos
     private static final String API_URL = "https://date.nager.at/api/v3/PublicHolidays/";
     private static final String COUNTRY_CODE = "ES";
 
+    /**
+     * Obtiene la lista de festivos para un año específico.
+     * @param año El año para el cual se quieren obtener los festivos
+     * @return Lista de objetos Festivo con la información de los días festivos
+     * @throws RuntimeException Si ocurre un error al obtener los festivos
+     */
     public static List<Festivo> obtenerFestivos(int año) {
         List<Festivo> festivos = new ArrayList<>();
         try {
-            System.out.println("Obteniendo festivos para Mérida del año " + año);
             
             // Obtener festivos de la API
             URL url = new URL(API_URL + año + "/" + COUNTRY_CODE);
-            System.out.println("URL de la API: " + url.toString());
             
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
@@ -30,7 +39,6 @@ public class FestivosService {
             conn.setReadTimeout(5000);
 
             int responseCode = conn.getResponseCode();
-            System.out.println("Código de respuesta: " + responseCode);
 
             if (responseCode == 200) {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
@@ -42,9 +50,7 @@ public class FestivosService {
                 }
                 reader.close();
 
-                System.out.println("Respuesta de la API recibida");
                 JSONArray jsonArray = new JSONArray(response.toString());
-                System.out.println("Número de festivos obtenidos de la API: " + jsonArray.length());
                 
                 DateTimeFormatter formatter = DateTimeFormatter.ISO_LOCAL_DATE;
 
@@ -81,7 +87,6 @@ public class FestivosService {
                         try {
                             LocalDate fecha = LocalDate.parse(fechaStr, formatter);
                             festivos.add(new Festivo(fecha, nombre, tipo));
-                            System.out.println("Añadido festivo " + tipo + ": " + nombre + " (" + fecha + ")");
                         } catch (Exception e) {
                             System.err.println("Error al procesar fecha del festivo " + nombre + ": " + e.getMessage());
                         }
@@ -92,7 +97,6 @@ public class FestivosService {
             }
 
             // Añadir festivos locales específicos de Mérida
-            System.out.println("Añadiendo festivos locales de Mérida...");
             
             // Festivos locales específicos de Mérida (estos son fijos cada año)
             festivos.add(new Festivo(LocalDate.of(año, 5, 22), "Emerita Lvdica", "Local"));
@@ -102,12 +106,30 @@ public class FestivosService {
             // Ordenar los festivos por fecha
             festivos.sort((f1, f2) -> f1.getFecha().compareTo(f2.getFecha()));
 
-            System.out.println("Total de festivos añadidos: " + festivos.size());
 
         } catch (Exception e) {
             System.err.println("Error al obtener festivos: " + e.getMessage());
             e.printStackTrace();
         }
         return festivos;
+    }
+
+    /**
+     * Verifica si una fecha específica es festiva.
+     * @param fecha La fecha a verificar
+     * @return true si la fecha es festiva, false en caso contrario
+     */
+    public static boolean esFestivo(LocalDate fecha) {
+        try {
+            // Obtener los festivos del año de la fecha
+            List<Festivo> festivos = obtenerFestivos(fecha.getYear());
+            
+            // Verificar si la fecha está en la lista de festivos
+            return festivos.stream()
+                    .anyMatch(festivo -> festivo.getFecha().equals(fecha));
+        } catch (Exception e) {
+            System.err.println("Error al verificar si es festivo: " + e.getMessage());
+            return false;
+        }
     }
 } 
